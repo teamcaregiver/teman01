@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { users as initialUsers } from "@/lib/mock-data";
 import type { User } from "@/lib/mock-data";
+import { supabase } from "@/lib/supabase/client";
+import { getAccessToken } from "@/lib/auth-store";
+import { adminCreateUser } from "@/lib/admin-users";
 import { toast } from "sonner";
 import { Check, Pencil, Plus, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
@@ -19,21 +23,44 @@ export const Route = createFileRoute("/admin/staff")({
 
 const EMPTY_ADD = { name: "", email: "", phone: "", password: "" };
 
+async function fetchStaff(): Promise<User[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,name,email,role,status,phone,created_at")
+    .eq("role", "staff")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    role: p.role,
+    status: p.status,
+    phone: p.phone ?? undefined,
+  }));
+}
+
 function StaffPage() {
-  const [list, setList] = useState<User[]>(initialUsers.filter((u) => u.role === "staff"));
+  const qc = useQueryClient();
+  const { data: list = [], isLoading } = useQuery({ queryKey: ["staff"], queryFn: fetchStaff });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["staff"] });
+
   const [q, setQ] = useState("");
   const [addDialog, setAddDialog] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_ADD);
+  const [saving, setSaving] = useState(false);
   const [editTarget, setEditTarget] = useState<User | null>(null);
   const [editForm, setEditForm] = useState({ name: "", phone: "", status: "" as User["status"] });
 
-  const filtered = list.filter((u) =>
-    u.name.toLowerCase().includes(q.toLowerCase()) || u.email.includes(q)
+  const filtered = list.filter(
+    (u) => u.name.toLowerCase().includes(q.toLowerCase()) || u.email.includes(q),
   );
 
-  const updateStatus = (id: string, status: User["status"]) => {
-    setList(prev => prev.map(u => u.id === id ? { ...u, status } : u));
+  const updateStatus = async (id: string, status: User["status"]) => {
+    const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
+    if (error) return toast.error(error.message);
     toast.success("Status staf dikemaskini");
+    refresh();
   };
 
   const openEdit = (u: User) => {
@@ -41,34 +68,53 @@ function StaffPage() {
     setEditForm({ name: u.name, phone: u.phone ?? "", status: u.status });
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!addForm.name.trim() || !addForm.email.trim() || !addForm.password.trim()) {
       toast.error("Sila isi nama, emel dan kata laluan.");
       return;
     }
-    const newStaff: User = {
-      id: `u-staff-${Date.now()}`,
-      name: addForm.name,
-      email: addForm.email,
-      phone: addForm.phone,
-      role: "staff",
-      status: "active",
-    };
-    setList(prev => [...prev, newStaff]);
-    toast.success(`Staf ${addForm.name} berjaya ditambah`);
-    setAddForm(EMPTY_ADD);
-    setAddDialog(false);
+    setSaving(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        toast.error("Sesi tamat. Sila log masuk semula.");
+        return;
+      }
+      await adminCreateUser({
+        data: {
+          token,
+          name: addForm.name,
+          email: addForm.email,
+          phone: addForm.phone,
+          password: addForm.password,
+          role: "staff",
+        },
+      });
+      toast.success(`Staf ${addForm.name} berjaya ditambah`);
+      setAddForm(EMPTY_ADD);
+      setAddDialog(false);
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menambah staf.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editTarget) return;
     if (!editForm.name.trim()) {
       toast.error("Nama tidak boleh kosong.");
       return;
     }
-    setList(prev => prev.map(u => u.id === editTarget.id ? { ...u, name: editForm.name, phone: editForm.phone, status: editForm.status } : u));
+    const { error } = await supabase
+      .from("profiles")
+      .update({ name: editForm.name, phone: editForm.phone, status: editForm.status })
+      .eq("id", editTarget.id);
+    if (error) return toast.error(error.message);
     toast.success("Maklumat staf dikemaskini");
     setEditTarget(null);
+    refresh();
   };
 
   const tone: Record<User["status"], string> = {
@@ -103,7 +149,8 @@ function StaffPage() {
 
       <Card className="border-border/60 p-0">
         <div className="divide-y divide-border">
-          {filtered.length === 0 && (
+          {isLoading && <p className="p-6 text-center text-sm text-muted-foreground">Memuatkan...</p>}
+          {!isLoading && filtered.length === 0 && (
             <p className="p-6 text-center text-sm text-muted-foreground">Tiada staf dijumpai.</p>
           )}
           {filtered.map((u, i) => (
@@ -167,12 +214,12 @@ function StaffPage() {
               <Input value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} placeholder="012-3456789" />
             </Field>
             <Field label="Kata Laluan Sementara *">
-              <Input type="password" value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} placeholder="Min. 8 aksara" />
+              <PasswordInput value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} placeholder="Min. 6 aksara" />
             </Field>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setAddDialog(false)}>Batal</Button>
-            <Button onClick={handleAdd}>Tambah Staf</Button>
+            <Button onClick={handleAdd} disabled={saving}>{saving ? "Menyimpan..." : "Tambah Staf"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

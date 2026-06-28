@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { DEMO_CREDENTIALS, signInWithEmail } from "@/lib/auth-store";
 import type { Role } from "@/lib/mock-data";
@@ -25,19 +26,21 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      const u = signInWithEmail(email, password);
-      setLoading(false);
-      if (!u) {
-        toast.error("Emel atau kata laluan salah");
-        return;
-      }
-      toast.success(`Selamat datang, ${u.name}`);
-      navigate({ to: routeFor(u.role) });
-    }, 250);
+    const res = await signInWithEmail(email, password);
+    setLoading(false);
+    if (!res.ok) {
+      if (res.reason === "pending")
+        toast.error("Akaun anda masih menunggu kelulusan admin.");
+      else if (res.reason === "blocked")
+        toast.error("Akaun anda tidak aktif. Sila hubungi admin.");
+      else toast.error("Emel atau kata laluan salah");
+      return;
+    }
+    toast.success(`Selamat datang, ${res.user.name}`);
+    navigate({ to: routeFor(res.user.role) });
   };
 
   const fill = (e: string, p: string) => {
@@ -132,9 +135,8 @@ function LoginPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Kata Laluan</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   required
                   placeholder="••••••••"
                   value={password}

@@ -11,10 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parents } from "@/lib/mock-data";
-import type { Parent } from "@/lib/mock-data";
+import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export const Route = createFileRoute("/anak/daftar-warga")({
   component: RegisterParent,
@@ -35,42 +35,58 @@ const STATUS_KOGNITIF = ["Normal", "Ringan", "Sederhana", "Teruk"];
 function RegisterParent() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [saving, setSaving] = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!user) {
+      toast.error("Sila log masuk semula.");
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const get = (k: string) => (fd.get(k) as string | null)?.trim() ?? "";
+    setSaving(true);
+    try {
+      // Insert the elderly, then auto-link it to the logged-in anak account.
+      const { data: parent, error } = await supabase
+        .from("parents")
+        .insert({
+          full_name: get("fullName"),
+          ic: get("ic"),
+          birth_date: get("birthDate") || null,
+          gender: (get("gender") as "L" | "P") || "P",
+          address: get("address"),
+          phone: get("phone"),
+          medical_condition: get("medicalCondition"),
+          medication: get("medication"),
+          emergency_contact: get("emergencyContact"),
+          relationship: get("relationship"),
+          jenis_darah: get("jenisDarah") || null,
+          alahan: get("alahan") || null,
+          nama_doktor: get("namaDoktor") || null,
+          tel_doktor: get("telDoktor") || null,
+          hospital_rujukan: get("hospitalRujukan") || null,
+          no_insurans: get("noInsurans") || null,
+          status_mobiliti: get("statusMobiliti") || null,
+          status_kognitif: get("statusKognitif") || null,
+          sekatan_pemakanan: get("sekatanPemakanan") || null,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
 
-    // Auto-link the new elderly to the currently logged-in anak account.
-    const newParent: Parent = {
-      id: `p-${Date.now()}`,
-      fullName: get("fullName"),
-      ic: get("ic"),
-      birthDate: get("birthDate"),
-      gender: (get("gender") as "L" | "P") || "P",
-      address: get("address"),
-      phone: get("phone"),
-      medicalCondition: get("medicalCondition"),
-      medication: get("medication"),
-      emergencyContact: get("emergencyContact"),
-      relationship: get("relationship"),
-      anakIds: user?.id ? [user.id] : [],
-      jenisDarah: get("jenisDarah") || undefined,
-      alahan: get("alahan") || undefined,
-      namaDoktor: get("namaDoktor") || undefined,
-      telDoktor: get("telDoktor") || undefined,
-      hospitalRujukan: get("hospitalRujukan") || undefined,
-      noInsurans: get("noInsurans") || undefined,
-      statusMobiliti: get("statusMobiliti") || undefined,
-      statusKognitif: get("statusKognitif") || undefined,
-      sekatanPemakanan: get("sekatanPemakanan") || undefined,
-    };
-    parents.push(newParent);
+      const { error: linkErr } = await supabase
+        .from("parent_anak")
+        .insert({ parent_id: parent.id, anak_id: user.id });
+      if (linkErr) throw linkErr;
 
-    toast.success(
-      "Warga emas berjaya didaftarkan dan dipautkan ke akaun anda.",
-    );
-    navigate({ to: "/anak" });
+      toast.success("Warga emas berjaya didaftarkan dan dipautkan ke akaun anda.");
+      navigate({ to: "/anak" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mendaftar warga emas.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -266,7 +282,7 @@ function RegisterParent() {
           >
             Batal
           </Button>
-          <Button type="submit">Simpan & Daftar</Button>
+          <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan & Daftar"}</Button>
         </div>
       </form>
     </div>

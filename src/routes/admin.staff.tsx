@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import type { User } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase/client";
-import { getAccessToken } from "@/lib/auth-store";
 import { adminCreateUser } from "@/lib/admin-users";
 import { toast } from "sonner";
 import { Check, Pencil, Plus, Search, X } from "lucide-react";
@@ -75,20 +74,12 @@ function StaffPage() {
     }
     setSaving(true);
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        toast.error("Sesi tamat. Sila log masuk semula.");
-        return;
-      }
       await adminCreateUser({
-        data: {
-          token,
-          name: addForm.name,
-          email: addForm.email,
-          phone: addForm.phone,
-          password: addForm.password,
-          role: "staff",
-        },
+        name: addForm.name,
+        email: addForm.email,
+        phone: addForm.phone,
+        password: addForm.password,
+        role: "staff",
       });
       toast.success(`Staf ${addForm.name} berjaya ditambah`);
       setAddForm(EMPTY_ADD);

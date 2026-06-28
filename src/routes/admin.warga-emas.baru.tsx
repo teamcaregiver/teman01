@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
-import { getAccessToken } from "@/lib/auth-store";
 import { adminCreateUser } from "@/lib/admin-users";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -48,20 +47,12 @@ function NewParent() {
       // 1) Resolve the anak account (create a new one, or link an existing one).
       let anakId: string | null = null;
       if (createAnak) {
-        const token = await getAccessToken();
-        if (!token) {
-          toast.error("Sesi tamat. Sila log masuk semula.");
-          return;
-        }
         const created = await adminCreateUser({
-          data: {
-            token,
-            name: get("anakName"),
-            email: get("anakEmail"),
-            phone: get("anakPhone"),
-            password: get("anakPassword"),
-            role: "anak",
-          },
+          name: get("anakName"),
+          email: get("anakEmail"),
+          phone: get("anakPhone"),
+          password: get("anakPassword"),
+          role: "anak",
         });
         anakId = created.id;
       } else {

@@ -36,7 +36,7 @@ export function RegisterForm({ role }: { role: "anak" | "staff" }) {
         toast.success("Akaun anak berjaya didaftarkan");
         navigate({ to: "/anak" });
       } else {
-        await applyAsStaff({ data: form });
+        await applyAsStaff(form);
         toast.success("Permohonan dihantar. Menunggu kelulusan admin.");
         navigate({ to: "/login" });
       }

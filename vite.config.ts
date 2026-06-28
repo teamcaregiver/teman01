@@ -7,14 +7,17 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
-  // Force nitro on outside the Lovable sandbox; preset auto-detects Vercel via NITRO_PRESET/env.
-  nitro: true,
+  // Static SPA build for GitHub Pages — no SSR, no Nitro/Cloudflare worker.
+  // Vite-only build emits to dist/; the postbuild step
+  // (scripts/gh-pages-postbuild.mjs) adds 404.html + .nojekyll for
+  // client-side routing and underscore-prefixed assets.
+  nitro: false,
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
+    // Prerender only the shell to index.html; all routing happens client-side.
+    spa: { enabled: true },
   },
   vite: {
+    // Served from https://teamcaregiver.github.io/teman01/ (project page).
     base: '/teman01/',
   },
 });

@@ -7,6 +7,9 @@ export const getRouter = () => {
 
   const router = createRouter({
     routeTree,
+    // Match the Vite `base` (e.g. "/teman01/") so client-side routing works
+    // under the GitHub Pages project sub-path.
+    basepath: import.meta.env.BASE_URL,
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,

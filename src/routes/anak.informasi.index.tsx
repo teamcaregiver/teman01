@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { articles, videos, TOPICS, SUBTOPICS } from "@/lib/mock-data";
+import { TOPICS, SUBTOPICS, YT_IFRAME_ALLOW } from "@/lib/mock-data";
+import { useArticles, useVideos } from "@/lib/data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { Download, FileText, Search, Video } from "lucide-react";
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/anak/informasi/")({
 });
 
 function InfoLibrary() {
+  const articles = useArticles();
+  const videos = useVideos();
   const [topic, setTopic] = useState<string>("Semua");
   const [sub, setSub] = useState<string>("Semua");
   const [q, setQ] = useState("");
@@ -146,6 +149,8 @@ function InfoLibrary() {
                   <iframe
                     src={v.url}
                     className="h-full w-full"
+                    allow={YT_IFRAME_ALLOW}
+                    referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen
                     title={v.title}
                   />

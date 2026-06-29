@@ -39,12 +39,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  articles as initialArticles,
-  VISIBILITY_LABEL,
-  youtubeEmbed,
-} from "@/lib/mock-data";
+import { VISIBILITY_LABEL, YT_IFRAME_ALLOW, youtubeEmbed } from "@/lib/mock-data";
 import type { Article, ContentVisibility } from "@/lib/mock-data";
+import { useArticles, useInvalidate, qk } from "@/lib/data";
+import { supabase } from "@/lib/supabase/client";
 import { TopicSubtopicFields } from "@/components/topic-subtopic-fields";
 import {
   Eye,
@@ -75,7 +73,8 @@ const EMPTY_FORM = {
 };
 
 function ArticlesPage() {
-  const [list, setList] = useState<Article[]>(initialArticles);
+  const list = useArticles();
+  const invalidate = useInvalidate();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<{
     open: boolean;
@@ -118,7 +117,7 @@ function ArticlesPage() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim() || !form.topic) {
       toast.error("Sila isi tajuk dan topik.");
       return;
@@ -127,55 +126,50 @@ function ArticlesPage() {
       toast.error("Sila isi kandungan artikel atau muat naik PDF.");
       return;
     }
-    const fields = {
+    const row = {
       title: form.title,
       topic: form.topic,
       subtopic: form.subtopic,
-      coverImage:
+      cover_image:
         form.coverImage ||
         "https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&q=80",
       body: form.body,
-      pdfUrl: form.pdfUrl || undefined,
-      pdfName: form.pdfUrl ? form.pdfName || "lampiran.pdf" : undefined,
-      youtubeUrl: form.youtubeUrl || undefined,
+      pdf_url: form.pdfUrl || null,
+      pdf_name: form.pdfUrl ? form.pdfName || "lampiran.pdf" : null,
+      youtube_url: form.youtubeUrl || null,
       visibility: form.visibility,
     };
     if (dialog.mode === "add") {
-      setList((prev) => [
-        {
-          id: `a${Date.now()}`,
-          views: 0,
-          createdAt: new Date().toISOString(),
-          ...fields,
-        },
-        ...prev,
-      ]);
+      const { error } = await supabase.from("articles").insert(row);
+      if (error) return toast.error(error.message);
       toast.success("Artikel berjaya ditambah");
     } else if (dialog.article) {
-      setList((prev) =>
-        prev.map((a) =>
-          a.id === dialog.article!.id ? { ...a, ...fields } : a,
-        ),
-      );
+      const { error } = await supabase.from("articles").update(row).eq("id", dialog.article.id);
+      if (error) return toast.error(error.message);
       toast.success("Artikel berjaya dikemaskini");
     }
+    invalidate(qk.articles);
     setDialog({ open: false, mode: "add" });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setList((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+    const { error } = await supabase.from("articles").delete().eq("id", deleteTarget.id);
+    if (error) return toast.error(error.message);
     setSelected((prev) => {
       const n = new Set(prev);
       n.delete(deleteTarget.id);
       return n;
     });
+    invalidate(qk.articles);
     toast.success("Artikel dipadam");
     setDeleteTarget(null);
   };
 
-  const deleteSelected = () => {
-    setList((prev) => prev.filter((a) => !selected.has(a.id)));
+  const deleteSelected = async () => {
+    const { error } = await supabase.from("articles").delete().in("id", [...selected]);
+    if (error) return toast.error(error.message);
+    invalidate(qk.articles);
     toast.success(`${selected.size} artikel dipadam`);
     setSelected(new Set());
   };
@@ -611,6 +605,8 @@ function EmbeddedYoutube({ url, title }: { url: string; title: string }) {
       <iframe
         src={youtubeEmbed(url)}
         className="h-full w-full"
+        allow={YT_IFRAME_ALLOW}
+        referrerPolicy="strict-origin-when-cross-origin"
         allowFullScreen
         title={title}
       />

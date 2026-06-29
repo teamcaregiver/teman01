@@ -40,12 +40,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  videos as initialVideos,
   VISIBILITY_LABEL,
+  YT_IFRAME_ALLOW,
   youtubeEmbed,
   youtubeThumb,
 } from "@/lib/mock-data";
 import type { Video, ContentVisibility } from "@/lib/mock-data";
+import { useVideos, useInvalidate, qk } from "@/lib/data";
+import { supabase } from "@/lib/supabase/client";
 import { TopicSubtopicFields } from "@/components/topic-subtopic-fields";
 import {
   ExternalLink,
@@ -76,7 +78,8 @@ const EMPTY_FORM = {
 };
 
 function VideosPage() {
-  const [list, setList] = useState<Video[]>(initialVideos);
+  const list = useVideos();
+  const invalidate = useInvalidate();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<{
     open: boolean;
@@ -118,55 +121,52 @@ function VideosPage() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim() || !form.url.trim()) {
       toast.error("Sila isi tajuk dan URL video.");
       return;
     }
-    const fields = {
+    const row = {
       title: form.title,
       topic: form.topic,
       subtopic: form.subtopic,
       url: youtubeEmbed(form.url) || form.url,
       description: form.description,
-      pdfUrl: form.pdfUrl || undefined,
-      pdfName: form.pdfUrl ? form.pdfName || "lampiran.pdf" : undefined,
+      pdf_url: form.pdfUrl || null,
+      pdf_name: form.pdfUrl ? form.pdfName || "lampiran.pdf" : null,
       visibility: form.visibility,
     };
     if (dialog.mode === "add") {
-      setList((prev) => [
-        {
-          id: `v${Date.now()}`,
-          views: 0,
-          createdAt: new Date().toISOString(),
-          ...fields,
-        },
-        ...prev,
-      ]);
+      const { error } = await supabase.from("videos").insert(row);
+      if (error) return toast.error(error.message);
       toast.success("Video berjaya ditambah");
     } else if (dialog.video) {
-      setList((prev) =>
-        prev.map((v) => (v.id === dialog.video!.id ? { ...v, ...fields } : v)),
-      );
+      const { error } = await supabase.from("videos").update(row).eq("id", dialog.video.id);
+      if (error) return toast.error(error.message);
       toast.success("Video berjaya dikemaskini");
     }
+    invalidate(qk.videos);
     setDialog({ open: false, mode: "add" });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setList((prev) => prev.filter((v) => v.id !== deleteTarget.id));
+    const { error } = await supabase.from("videos").delete().eq("id", deleteTarget.id);
+    if (error) return toast.error(error.message);
     setSelected((prev) => {
       const n = new Set(prev);
       n.delete(deleteTarget.id);
       return n;
     });
+    invalidate(qk.videos);
     toast.success("Video dipadam");
     setDeleteTarget(null);
   };
 
-  const deleteSelected = () => {
-    setList((prev) => prev.filter((v) => !selected.has(v.id)));
+  const deleteSelected = async () => {
+    const { error } = await supabase.from("videos").delete().in("id", [...selected]);
+    if (error) return toast.error(error.message);
+    invalidate(qk.videos);
     toast.success(`${selected.size} video dipadam`);
     setSelected(new Set());
   };
@@ -403,6 +403,8 @@ function VideosPage() {
                   <iframe
                     src={youtubeEmbed(form.url)}
                     className="h-full w-full"
+                    allow={YT_IFRAME_ALLOW}
+                    referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen
                     title="Pratonton"
                   />
@@ -510,6 +512,8 @@ function VideosPage() {
               <iframe
                 src={youtubeEmbed(videoPreview.url)}
                 className="h-full w-full"
+                allow={YT_IFRAME_ALLOW}
+                referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
                 title={videoPreview.title}
               />

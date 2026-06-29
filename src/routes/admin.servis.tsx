@@ -26,17 +26,22 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  bookings,
-  parents,
-  users,
-  caregivers,
-  getCaregiver,
   SERVICE_TYPES,
   TRANSPORT_MODES,
   BOOKING_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
 } from "@/lib/mock-data";
 import type { Booking, BookingStatus } from "@/lib/mock-data";
+import {
+  useBookings,
+  useParents,
+  useUsers,
+  useCaregivers,
+  useGetCaregiver,
+  useInvalidate,
+  qk,
+} from "@/lib/data";
+import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -84,13 +89,14 @@ function StatusPill({ status }: { status: BookingStatus }) {
 }
 
 function ServiceMonitoring() {
+  const bookings = useBookings();
+  const parents = useParents();
+  const users = useUsers();
+  const getCaregiver = useGetCaregiver();
+  const invalidate = useInvalidate();
   const [filter, setFilter] = useState<FilterKey>("all");
   const [selected, setSelected] = useState<Booking | null>(null);
-  const [, force] = useState(0);
-  const refresh = () => force((n) => n + 1);
 
-  // Bookings are mutated in place, so recompute on each render (the list is
-  // small). `refresh()` re-renders after a status / caregiver change.
   const sorted = [...bookings].sort(
     (a, b) =>
       +new Date(`${b.date}T${b.time}`) - +new Date(`${a.date}T${a.time}`),
@@ -108,20 +114,25 @@ function ServiceMonitoring() {
 
   const rows = sorted.filter((b) => filter === "all" || b.status === filter);
 
-  // `b` is the live array object; mutate it and re-render so both the table
-  // and the open detail reflect the change.
-  const setStatus = (b: Booking, status: BookingStatus) => {
-    b.status = status;
-    refresh();
+  const setStatus = async (b: Booking, status: BookingStatus) => {
+    const { error } = await supabase.from("bookings").update({ status }).eq("id", b.id);
+    if (error) return toast.error(error.message);
+    setSelected((prev) => (prev && prev.id === b.id ? { ...prev, status } : prev));
+    invalidate(qk.bookings);
     toast.success(`Status dikemas kini: ${BOOKING_STATUS_LABEL[status]}`);
   };
 
-  const assignCaregiver = (b: Booking, caregiverId: string) => {
-    b.caregiverId = caregiverId || undefined;
-    refresh();
-    toast.success(
-      caregiverId ? "Caregiver ditetapkan" : "Caregiver dikeluarkan",
+  const assignCaregiver = async (b: Booking, caregiverId: string) => {
+    const { error } = await supabase
+      .from("bookings")
+      .update({ caregiver_id: caregiverId || null })
+      .eq("id", b.id);
+    if (error) return toast.error(error.message);
+    setSelected((prev) =>
+      prev && prev.id === b.id ? { ...prev, caregiverId: caregiverId || undefined } : prev,
     );
+    invalidate(qk.bookings);
+    toast.success(caregiverId ? "Caregiver ditetapkan" : "Caregiver dikeluarkan");
   };
 
   return (
@@ -261,6 +272,10 @@ function ServiceDetail({
   onSetStatus: (b: Booking, status: BookingStatus) => void;
   onAssignCaregiver: (b: Booking, caregiverId: string) => void;
 }) {
+  const users = useUsers();
+  const parents = useParents();
+  const caregivers = useCaregivers();
+  const getCaregiver = useGetCaregiver();
   const anak = users.find((u) => u.id === b.anakId);
   const p = b.parentId ? parents.find((x) => x.id === b.parentId) : undefined;
   const svc = SERVICE_TYPES.find((s) => s.key === b.serviceType);

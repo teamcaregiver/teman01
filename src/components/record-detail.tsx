@@ -1,5 +1,6 @@
-import { parents, users, entryTime } from "@/lib/mock-data";
+import { entryTime } from "@/lib/mock-data";
 import type { TrackerRecord } from "@/lib/mock-data";
+import { useParents, useUsers } from "@/lib/data";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,8 @@ const KUANTITI_LABEL: Record<string, string> = {
 // Harian monitoring page and the admin Servis Monitoring detail. Admin can
 // inspect everything but cannot edit — there are no actions here.
 export function RecordDetail({ record }: { record: TrackerRecord }) {
+  const parents = useParents();
+  const users = useUsers();
   const p = parents.find((x) => x.id === record.parentId);
   const s = users.find((x) => x.id === record.staffId);
 

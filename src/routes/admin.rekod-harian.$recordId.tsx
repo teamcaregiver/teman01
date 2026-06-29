@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
-import { parents, trackers, users } from "@/lib/mock-data";
+import { useParents, useTrackers, useUsers } from "@/lib/data";
 import { RecordReport } from "@/components/record-report";
 import { VitalCharts } from "@/components/vital-charts";
 import { StatusBadge } from "@/components/status-badge";
@@ -13,6 +13,9 @@ export const Route = createFileRoute("/admin/rekod-harian/$recordId")({
 
 function RekodHarianDetail() {
   const { recordId } = useParams({ from: "/admin/rekod-harian/$recordId" });
+  const parents = useParents();
+  const trackers = useTrackers();
+  const users = useUsers();
   const record = trackers.find((t) => t.id === recordId);
   const parent = record
     ? parents.find((p) => p.id === record.parentId)

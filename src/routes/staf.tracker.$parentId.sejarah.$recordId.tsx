@@ -1,6 +1,6 @@
 import { createFileRoute, useParams, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
-import { trackers } from "@/lib/mock-data";
+import { useTrackers } from "@/lib/data";
 import { RecordReport } from "@/components/record-report";
 import { StatusBadge } from "@/components/status-badge";
 import { format } from "date-fns";
@@ -16,6 +16,7 @@ function RekodDetailPage() {
   const { parentId, recordId } = useParams({
     from: "/staf/tracker/$parentId/sejarah/$recordId",
   });
+  const trackers = useTrackers();
   const record = trackers.find((t) => t.id === recordId);
 
   return (

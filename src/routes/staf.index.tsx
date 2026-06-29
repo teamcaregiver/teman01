@@ -3,7 +3,7 @@ import { StatCard } from "@/components/stat-card";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { parents, trackers } from "@/lib/mock-data";
+import { useParents, useTrackers } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { Heart, Activity, ClipboardPlus } from "lucide-react";
 import { format } from "date-fns";
@@ -14,6 +14,8 @@ export const Route = createFileRoute("/staf/")({
 
 function StaffHome() {
   const { user } = useAuth();
+  const parents = useParents();
+  const trackers = useTrackers();
   const assigned = parents.filter((p) => p.staffId === user?.id);
   const myRecords = trackers.filter((t) => t.staffId === user?.id);
   const today = new Date().toDateString();

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
-import { parents, trackers } from "@/lib/mock-data";
+import { useParents, useTrackers } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { ChevronRight, Heart, Activity } from "lucide-react";
@@ -13,6 +13,8 @@ export const Route = createFileRoute("/anak/")({
 
 function AnakHome() {
   const { user } = useAuth();
+  const parents = useParents();
+  const trackers = useTrackers();
   const myParents = parents.filter((p) => p.anakIds.includes(user?.id ?? ""));
 
   return (

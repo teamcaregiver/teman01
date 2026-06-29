@@ -8,9 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { parents, computeVitalStatus } from "@/lib/mock-data";
+import { computeVitalStatus } from "@/lib/mock-data";
 import type { VitalEntry } from "@/lib/mock-data";
 import { addVitalEntry } from "@/lib/tracker-actions";
+import { useParents, useInvalidate, qk } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -40,17 +41,20 @@ function VitalForm() {
   const { parentId } = useParams({ from: "/staf/tracker/$parentId/vital" });
   const { user } = useAuth();
   const navigate = useNavigate();
+  const parents = useParents();
+  const invalidate = useInvalidate();
   const parent = parents.find((p) => p.id === parentId);
   const [f, setF] = useState(empty);
 
-  if (!parent) return <p>Warga emas tidak dijumpai.</p>;
+  if (!parent)
+    return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
 
   const set = (k: keyof typeof empty, val: string) =>
     setF((p) => ({ ...p, [k]: val }));
   const back = () =>
     navigate({ to: "/staf/tracker/$parentId", params: { parentId } });
 
-  const submit = () => {
+  const submit = async () => {
     if (!Object.values(f).some((x) => x !== "")) {
       toast.error("Isi sekurang-kurangnya satu bacaan");
       return;
@@ -74,9 +78,14 @@ function VitalForm() {
       }),
       pengesahan: user?.name ?? "",
     };
-    addVitalEntry(parentId, user?.id ?? "", entry);
-    toast.success("Tanda vital direkod");
-    back();
+    try {
+      await addVitalEntry(parentId, user?.id ?? "", entry);
+      invalidate(qk.trackers);
+      toast.success("Tanda vital direkod");
+      back();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan rekod");
+    }
   };
 
   return (

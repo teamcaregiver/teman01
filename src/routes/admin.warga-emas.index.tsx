@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { parents, users } from "@/lib/mock-data";
+import { useParents, useUsers } from "@/lib/data";
 import { useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
@@ -13,6 +13,8 @@ export const Route = createFileRoute("/admin/warga-emas/")({
 });
 
 function WargaPage() {
+  const parents = useParents();
+  const users = useUsers();
   const [q, setQ] = useState("");
   const list = parents.filter((p) => p.fullName.toLowerCase().includes(q.toLowerCase()));
   return (

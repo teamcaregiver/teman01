@@ -10,10 +10,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
-  parents, bookings, getCaregiver,
   SERVICE_TYPES, TRANSPORT_MODES, BOOKING_STATUS_LABEL, PAYMENT_STATUS_LABEL,
 } from "@/lib/mock-data";
-import type { Booking, Caregiver, ServiceType, TransportMode, BookingStatus } from "@/lib/mock-data";
+import type { Booking, Caregiver, Parent, ServiceType, TransportMode, BookingStatus } from "@/lib/mock-data";
+import { useParents, useBookings, useGetCaregiver, useInvalidate, qk } from "@/lib/data";
+import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -60,12 +61,14 @@ function bucketOf(b: Booking): Bucket {
 
 function ServicePage() {
   const { user } = useAuth();
+  const parents = useParents();
+  const bookings = useBookings();
+  const invalidate = useInvalidate();
   const myParents = parents.filter(p => p.anakIds.includes(user?.id ?? ""));
 
   const [view, setView] = useState<"history" | "form">("history");
   const [tab, setTab] = useState<Bucket>("upcoming");
   const [selected, setSelected] = useState<Booking | null>(null);
-  const [, force] = useState(0);
 
   if (view === "form") {
     return (
@@ -73,7 +76,7 @@ function ServicePage() {
         userId={user?.id ?? ""}
         myParents={myParents}
         onCancel={() => setView("history")}
-        onCreated={() => { force(n => n + 1); setTab("upcoming"); setView("history"); }}
+        onCreated={() => { invalidate(qk.bookings); setTab("upcoming"); setView("history"); }}
       />
     );
   }
@@ -84,18 +87,20 @@ function ServicePage() {
 
   const filtered = myBookings.filter(b => bucketOf(b) === tab);
 
-  const cancelBooking = (b: Booking) => {
-    b.status = "cancelled";
-    force(n => n + 1);
+  const cancelBooking = async (b: Booking) => {
+    const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
+    if (error) return toast.error(error.message);
+    invalidate(qk.bookings);
     setSelected(null);
     setTab("cancelled");
     toast.success("Tempahan dibatalkan.");
   };
 
-  const rescheduleBooking = (b: Booking, date: string, time: string) => {
-    b.date = date;
-    b.time = time;
-    force(n => n + 1);
+  const rescheduleBooking = async (b: Booking, date: string, time: string) => {
+    const { error } = await supabase.from("bookings").update({ date, time }).eq("id", b.id);
+    if (error) return toast.error(error.message);
+    invalidate(qk.bookings);
+    setSelected((prev) => (prev && prev.id === b.id ? { ...prev, date, time } : prev));
     toast.success("Tempahan dijadualkan semula.");
   };
 
@@ -154,6 +159,8 @@ function ServicePage() {
 
 // ---- Booking card (history item) ----
 function BookingCard({ booking: b, onClick }: { booking: Booking; onClick: () => void }) {
+  const parents = useParents();
+  const getCaregiver = useGetCaregiver();
   const p = b.parentId ? parents.find(x => x.id === b.parentId) : undefined;
   const svc = SERVICE_TYPES.find(s => s.key === b.serviceType);
   const cg = getCaregiver(b.caregiverId);
@@ -204,6 +211,8 @@ function BookingDialog({ booking: b, onClose, onCancelBooking, onReschedule }: {
   onCancelBooking: (b: Booking) => void;
   onReschedule: (b: Booking, date: string, time: string) => void;
 }) {
+  const parents = useParents();
+  const getCaregiver = useGetCaregiver();
   const p = b?.parentId ? parents.find(x => x.id === b.parentId) : undefined;
   const svc = b ? SERVICE_TYPES.find(s => s.key === b.serviceType) : undefined;
   const trans = b ? TRANSPORT_MODES.find(t => t.key === b.transport) : undefined;
@@ -379,7 +388,7 @@ function CaregiverPending() {
 // ---- New booking form (shown only after "Tambah Tempahan") ----
 function BookingForm({ userId, myParents, onCancel, onCreated }: {
   userId: string;
-  myParents: typeof parents;
+  myParents: Parent[];
   onCancel: () => void;
   onCreated: () => void;
 }) {
@@ -391,22 +400,24 @@ function BookingForm({ userId, myParents, onCancel, onCreated }: {
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !time || !location.trim()) {
       toast.error("Sila lengkapkan tarikh, masa dan lokasi.");
       return;
     }
-    const booking: Booking = {
-      id: `b-${Date.now()}`,
-      anakId: userId,
-      parentId: parentId === "none" ? undefined : parentId,
-      serviceType, date, time, transport,
-      location, notes: notes || undefined,
+    const { error } = await supabase.from("bookings").insert({
+      anak_id: userId,
+      parent_id: parentId === "none" ? null : parentId,
+      service_type: serviceType,
+      date,
+      time,
+      transport,
+      location,
+      notes: notes || null,
       status: "pending",
-      createdAt: new Date().toISOString(),
-    };
-    bookings.unshift(booking);
+    });
+    if (error) return toast.error(error.message);
     toast.success("Tempahan dihantar. Menunggu pengesahan admin.");
     onCreated();
   };

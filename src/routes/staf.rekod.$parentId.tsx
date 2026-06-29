@@ -9,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { parents, trackers } from "@/lib/mock-data";
+import { useParents, useTrackers } from "@/lib/data";
 import type { Parent, TrackerRecord } from "@/lib/mock-data";
 import { entryTime } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-store";
@@ -27,6 +27,8 @@ export const Route = createFileRoute("/staf/rekod/$parentId")({
 function RekodSayaDetail() {
   const { parentId } = useParams({ from: "/staf/rekod/$parentId" });
   const { user } = useAuth();
+  const parents = useParents();
+  const trackers = useTrackers();
   const parent = parents.find((p) => p.id === parentId);
 
   // Records this staff recorded for this elderly, newest first.

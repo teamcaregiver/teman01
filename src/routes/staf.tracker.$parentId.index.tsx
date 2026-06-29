@@ -4,18 +4,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { parents, trackers, DEFAULT_CHECKLIST } from "@/lib/mock-data";
+import { DEFAULT_CHECKLIST } from "@/lib/mock-data";
 import {
-  todayRecord,
+  pickTodayRecord,
   setChecklist,
   setCatatanKhas,
 } from "@/lib/tracker-actions";
+import { useParents, useTrackers, useInvalidate, qk } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { ElderlyInfoDialog } from "@/components/elderly-info-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   HeartPulse,
   Pill,
@@ -47,10 +48,13 @@ const ACTIONS = [
 function TrackerHome() {
   const { parentId } = useParams({ from: "/staf/tracker/$parentId/" });
   const { user } = useAuth();
+  const parents = useParents();
+  const trackers = useTrackers();
+  const invalidate = useInvalidate();
   const parent = parents.find((p) => p.id === parentId);
   const staffId = user?.id ?? "";
 
-  const today = todayRecord(parentId, staffId);
+  const today = pickTodayRecord(trackers, parentId, staffId);
 
   const [tab, setTab] = useState<"rekod" | "checklist">("rekod");
   const [checklist, setLocalChecklist] = useState(() =>
@@ -60,7 +64,15 @@ function TrackerHome() {
   );
   const [catatan, setLocalCatatan] = useState(today?.catatanKhas ?? "");
 
-  if (!parent) return <p>Warga emas tidak dijumpai.</p>;
+  // Sync local checklist/catatan when today's record loads or changes identity.
+  useEffect(() => {
+    if (today?.checklist?.length) setLocalChecklist(today.checklist.map((c) => ({ ...c })));
+    if (today?.catatanKhas != null) setLocalCatatan(today.catatanKhas);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today?.id]);
+
+  if (!parent)
+    return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
 
   // All records for this elderly — newest first (the live history feed).
   const history = trackers
@@ -69,17 +81,27 @@ function TrackerHome() {
 
   const totalChecked = checklist.filter((c) => c.done).length;
 
-  const toggleCheck = (id: string) => {
+  const toggleCheck = async (id: string) => {
     const next = checklist.map((c) =>
       c.id === id ? { ...c, done: !c.done } : c,
     );
     setLocalChecklist(next);
-    setChecklist(parentId, staffId, next);
+    try {
+      await setChecklist(parentId, staffId, next);
+      invalidate(qk.trackers);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan checklist");
+    }
   };
 
-  const saveCatatan = () => {
-    setCatatanKhas(parentId, staffId, catatan);
-    toast.success("Catatan khas disimpan");
+  const saveCatatan = async () => {
+    try {
+      await setCatatanKhas(parentId, staffId, catatan);
+      invalidate(qk.trackers);
+      toast.success("Catatan khas disimpan");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan catatan");
+    }
   };
 
   return (

@@ -19,6 +19,14 @@ export default defineConfig({
   vite: {
     // Served from https://teamcaregiver.github.io/teman01/ (project page).
     base: '/teman01/',
+    // Dev-only: pin a fixed port so the local URL is always the same
+    // (http://localhost:8080/teman01/). strictPort makes Vite fail loudly if
+    // 8080 is busy instead of silently drifting to 8081/8082. Has no effect on
+    // the static `vite build` output used for GitHub Pages.
+    server: {
+      port: 8080,
+      strictPort: true,
+    },
   },
 });
 

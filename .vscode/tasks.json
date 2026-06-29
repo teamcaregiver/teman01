@@ -1,0 +1,34 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            // Runs `npm run dev` (vite dev). Marked as a background task so the
+            // F5 launch waits until Vite prints "ready in ..." before opening
+            // Chrome. Started automatically as the preLaunchTask in launch.json,
+            // or run on its own via "Terminal > Run Task... > dev: vite".
+            "label": "dev: vite",
+            "type": "npm",
+            "script": "dev",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "vite",
+                "pattern": {
+                    "regexp": "^([^\\s].*)\\((\\d+,\\d+)\\):\\s*(.*)$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "VITE v",
+                    "endsPattern": "ready in"
+                }
+            }
+        }
+    ]
+}

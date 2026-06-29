@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { parents, trackers } from "@/lib/mock-data";
+import { useParents, useTrackers } from "@/lib/data";
 import { careCats } from "@/lib/care-cats";
 import { useAuth } from "@/lib/auth-store";
 import { StatusBadge } from "@/components/status-badge";
@@ -15,6 +15,8 @@ export const Route = createFileRoute("/staf/rekod/")({
 
 function MyRecords() {
   const { user } = useAuth();
+  const parents = useParents();
+  const trackers = useTrackers();
   const assigned = parents.filter((p) => p.staffId === user?.id);
   const now = new Date();
 

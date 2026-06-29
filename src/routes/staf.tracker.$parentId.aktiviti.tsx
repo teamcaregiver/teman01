@@ -8,8 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { parents } from "@/lib/mock-data";
 import { appendAktiviti } from "@/lib/tracker-actions";
+import { useParents, useInvalidate, qk } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -24,12 +24,15 @@ function AktivitiForm() {
   const { parentId } = useParams({ from: "/staf/tracker/$parentId/aktiviti" });
   const { user } = useAuth();
   const navigate = useNavigate();
+  const parents = useParents();
+  const invalidate = useInvalidate();
   const parent = parents.find((p) => p.id === parentId);
 
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
-  if (!parent) return <p>Warga emas tidak dijumpai.</p>;
+  if (!parent)
+    return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
 
   const back = () =>
     navigate({ to: "/staf/tracker/$parentId", params: { parentId } });
@@ -42,14 +45,19 @@ function AktivitiForm() {
     ]);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!text.trim() && photos.length === 0) {
       toast.error("Tulis laporan atau tambah gambar");
       return;
     }
-    appendAktiviti(parentId, user?.id ?? "", user?.name ?? "", text, photos);
-    toast.success("Laporan aktiviti direkod");
-    back();
+    try {
+      await appendAktiviti(parentId, user?.id ?? "", user?.name ?? "", text, photos);
+      invalidate(qk.trackers);
+      toast.success("Laporan aktiviti direkod");
+      back();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan laporan");
+    }
   };
 
   return (

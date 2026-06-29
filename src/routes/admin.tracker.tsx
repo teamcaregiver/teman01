@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { parents, trackers, users } from "@/lib/mock-data";
+import { useParents, useTrackers, useUsers } from "@/lib/data";
 import type { TrackerRecord } from "@/lib/mock-data";
 import { StatusBadge } from "@/components/status-badge";
 import { VitalCharts } from "@/components/vital-charts";
@@ -69,6 +69,9 @@ function matchesCategory(t: TrackerRecord, c: Category): boolean {
 }
 
 function TrackerAdmin() {
+  const parents = useParents();
+  const trackers = useTrackers();
+  const users = useUsers();
   const [pid, setPid] = useState("all");
   const [sid, setSid] = useState("all");
   const [from, setFrom] = useState("");
@@ -83,7 +86,7 @@ function TrackerAdmin() {
       .filter((t) => !to || t.date.slice(0, 10) <= to)
       .filter((t) => matchesCategory(t, category))
       .sort((a, b) => +new Date(b.date) - +new Date(a.date));
-  }, [pid, sid, from, to, category]);
+  }, [trackers, pid, sid, from, to, category]);
 
   const summary = useMemo(
     () => ({

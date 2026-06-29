@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { parents } from "@/lib/mock-data";
+import { useParents } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { ElderlyInfoDialog } from "@/components/elderly-info-dialog";
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/staf/warga-emas")({
 
 function AssignedParents() {
   const { user } = useAuth();
+  const parents = useParents();
   const list = parents.filter((p) => p.staffId === user?.id);
   return (
     <div className="space-y-5">

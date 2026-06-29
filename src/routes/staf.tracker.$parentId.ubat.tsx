@@ -17,13 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  parents,
-  medications,
-  medsForParent,
-  CARA_PENGAMBILAN,
-  PRN_TYPE_LABEL,
-} from "@/lib/mock-data";
+import { CARA_PENGAMBILAN, PRN_TYPE_LABEL } from "@/lib/mock-data";
 import type {
   Medication,
   UbatItem,
@@ -31,6 +25,10 @@ import type {
   PrnType,
 } from "@/lib/mock-data";
 import { addUbatanEntry } from "@/lib/tracker-actions";
+import { useParents, useInvalidate, qk } from "@/lib/data";
+import { fetchMedicationsForParent } from "@/lib/db";
+import { supabase } from "@/lib/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -55,15 +53,21 @@ function UbatForm() {
   const { parentId } = useParams({ from: "/staf/tracker/$parentId/ubat" });
   const { user } = useAuth();
   const navigate = useNavigate();
+  const parents = useParents();
+  const invalidate = useInvalidate();
   const parent = parents.find((p) => p.id === parentId);
 
-  const [meds, setMeds] = useState<Medication[]>(() => medsForParent(parentId));
+  const { data: meds = [] } = useQuery({
+    queryKey: ["medications", parentId],
+    queryFn: () => fetchMedicationsForParent(parentId),
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [newMed, setNewMed] = useState(emptyNewMed);
 
-  if (!parent) return <p>Warga emas tidak dijumpai.</p>;
+  if (!parent)
+    return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
 
   const back = () =>
     navigate({ to: "/staf/tracker/$parentId", params: { parentId } });
@@ -79,30 +83,29 @@ function UbatForm() {
   const normalMeds = meds.filter((m) => !m.prn);
   const prnMeds = meds.filter((m) => m.prn);
 
-  const submitAddMed = () => {
+  const submitAddMed = async () => {
     if (!newMed.namaUbat.trim()) {
       toast.error("Nama ubat diperlukan");
       return;
     }
-    const med: Medication = {
-      id: `med-${Date.now()}`,
-      parentId,
-      namaUbat: newMed.namaUbat,
-      dos: newMed.dos,
-      caraPengambilan: newMed.caraPengambilan,
-      kekerapan: newMed.kekerapan || undefined,
-      catatan: newMed.catatan || undefined,
+    const { error } = await supabase.from("medications").insert({
+      parent_id: parentId,
+      nama_ubat: newMed.namaUbat,
+      dos: newMed.dos || null,
+      cara_pengambilan: newMed.caraPengambilan || null,
+      kekerapan: newMed.kekerapan || null,
+      catatan: newMed.catatan || null,
       prn: newMed.prn,
-      prnType: newMed.prn ? newMed.prnType : undefined,
-    };
-    medications.push(med);
-    setMeds((prev) => [...prev, med]);
+      prn_type: newMed.prn ? newMed.prnType : null,
+    });
+    if (error) return toast.error(error.message);
+    invalidate(qk.medications);
     setNewMed(emptyNewMed);
     setShowAdd(false);
     toast.success("Ubat baharu ditambah ke senarai");
   };
 
-  const submitGive = () => {
+  const submitGive = async () => {
     if (selected.size === 0) {
       toast.error("Pilih sekurang-kurangnya satu ubat yang diberi");
       return;
@@ -123,9 +126,14 @@ function UbatForm() {
       catatan: note.trim() || undefined,
       pengesahan: user?.name ?? "",
     };
-    addUbatanEntry(parentId, user?.id ?? "", entry);
-    toast.success("Pengambilan ubat direkod");
-    back();
+    try {
+      await addUbatanEntry(parentId, user?.id ?? "", entry);
+      invalidate(qk.trackers);
+      toast.success("Pengambilan ubat direkod");
+      back();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan rekod");
+    }
   };
 
   return (

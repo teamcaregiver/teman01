@@ -1,0 +1,18 @@
+{
+    // Press F5 to run the app locally:
+    //   1. starts the Vite dev server (the "dev: vite" task below), then
+    //   2. opens Chrome at the app URL.
+    // The app is served under the /teman01/ sub-path (because of the GitHub
+    // Pages `base` in vite.config.ts), so the URL must include it.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Run app (local dev)",
+            "url": "http://localhost:8080/teman01/",
+            "webRoot": "${workspaceFolder}",
+            "preLaunchTask": "dev: vite"
+        }
+    ]
+}

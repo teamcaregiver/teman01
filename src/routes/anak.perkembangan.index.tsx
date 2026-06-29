@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { parents } from "@/lib/mock-data";
+import { useParents } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/anak/perkembangan/")({
 
 function PerkembanganIndex() {
   const { user } = useAuth();
+  const parents = useParents();
   const list = parents.filter((p) => p.anakIds.includes(user?.id ?? ""));
   return (
     <div className="space-y-4">

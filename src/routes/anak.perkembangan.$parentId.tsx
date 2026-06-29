@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { parents, trackers } from "@/lib/mock-data";
+import { useParents, useTrackers, useInvalidate, qk } from "@/lib/data";
 import type { TrackerRecord } from "@/lib/mock-data";
 import { VitalCharts } from "@/components/vital-charts";
 import { RecordReport } from "@/components/record-report";
@@ -23,13 +23,16 @@ export const Route = createFileRoute("/anak/perkembangan/$parentId")({
 
 function Perkembangan() {
   const { parentId } = useParams({ from: "/anak/perkembangan/$parentId" });
+  const parents = useParents();
+  const trackers = useTrackers();
+  const invalidate = useInvalidate();
   const parent = parents.find((p) => p.id === parentId);
 
   // Lightweight polling so new staff entries appear without manual refresh.
-  const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 4000);
+    const id = setInterval(() => invalidate(qk.trackers), 4000);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // User-picked date range (from … until). Undefined = default to latest day.
@@ -46,7 +49,8 @@ function Perkembangan() {
     [rows],
   );
 
-  if (!parent) return <p>Warga emas tidak dijumpai.</p>;
+  if (!parent)
+    return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
 
   // Effective range: fall back to the most recent recorded day when unset.
   const latestDay = rows[0] ? startOfDay(new Date(rows[0].date)) : undefined;

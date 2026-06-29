@@ -1,5 +1,7 @@
 import { createFileRoute, useParams, Link } from "@tanstack/react-router";
-import { articles, youtubeEmbed } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { YT_IFRAME_ALLOW, youtubeEmbed } from "@/lib/mock-data";
+import { fetchArticleById } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +13,11 @@ export const Route = createFileRoute("/anak/informasi/$id")({
 
 function ArticleDetail() {
   const { id } = useParams({ from: "/anak/informasi/$id" });
-  const a = articles.find((x) => x.id === id);
+  const { data: a, isLoading } = useQuery({
+    queryKey: ["article", id],
+    queryFn: () => fetchArticleById(id),
+  });
+  if (isLoading) return <p className="text-sm text-muted-foreground">Memuatkan...</p>;
   if (!a) return <p>Manual tidak dijumpai.</p>;
   return (
     <div className="space-y-4">
@@ -75,6 +81,8 @@ function ArticleDetail() {
               <iframe
                 src={youtubeEmbed(a.youtubeUrl)}
                 className="h-full w-full"
+                allow={YT_IFRAME_ALLOW}
+                referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
                 title={`Video: ${a.title}`}
               />

@@ -15,9 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { parents, KUANTITI_OPTIONS } from "@/lib/mock-data";
+import { KUANTITI_OPTIONS } from "@/lib/mock-data";
 import type { Kuantiti, MakananEntry } from "@/lib/mock-data";
 import { addMakananEntry } from "@/lib/tracker-actions";
+import { useParents, useInvalidate, qk } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -37,6 +38,8 @@ function MakananForm() {
   const { parentId } = useParams({ from: "/staf/tracker/$parentId/makanan" });
   const { user } = useAuth();
   const navigate = useNavigate();
+  const parents = useParents();
+  const invalidate = useInvalidate();
   const parent = parents.find((p) => p.id === parentId);
 
   const [jenisMakanan, setJenisMakanan] = useState("");
@@ -45,12 +48,13 @@ function MakananForm() {
   const [cecairMl, setCecairMl] = useState("");
   const [catatan, setCatatan] = useState("");
 
-  if (!parent) return <p>Warga emas tidak dijumpai.</p>;
+  if (!parent)
+    return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
 
   const back = () =>
     navigate({ to: "/staf/tracker/$parentId", params: { parentId } });
 
-  const submit = () => {
+  const submit = async () => {
     if (!jenisMakanan && !jenisMinum && !kuantiti && !cecairMl) {
       toast.error("Isi sekurang-kurangnya satu maklumat");
       return;
@@ -64,9 +68,14 @@ function MakananForm() {
       catatan: catatan || undefined,
       pengesahan: user?.name ?? "",
     };
-    addMakananEntry(parentId, user?.id ?? "", entry);
-    toast.success("Makanan & minuman direkod");
-    back();
+    try {
+      await addMakananEntry(parentId, user?.id ?? "", entry);
+      invalidate(qk.trackers);
+      toast.success("Makanan & minuman direkod");
+      back();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan rekod");
+    }
   };
 
   return (

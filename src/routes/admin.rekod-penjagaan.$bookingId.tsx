@@ -14,13 +14,10 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  bookings,
-  parents,
-  trackers,
-  getCaregiver,
   entryTime,
 } from "@/lib/mock-data";
 import type { TrackerRecord } from "@/lib/mock-data";
+import { useBookings, useParents, useTrackers, useGetCaregiver } from "@/lib/data";
 import { StatusBadge } from "@/components/status-badge";
 import { VitalCharts } from "@/components/vital-charts";
 import { format } from "date-fns";
@@ -77,6 +74,10 @@ function RekodPenjagaan() {
   const { bookingId } = useParams({
     from: "/admin/rekod-penjagaan/$bookingId",
   });
+  const bookings = useBookings();
+  const parents = useParents();
+  const trackers = useTrackers();
+  const getCaregiver = useGetCaregiver();
   const booking = bookings.find((b) => b.id === bookingId);
   const parent = booking?.parentId
     ? parents.find((p) => p.id === booking.parentId)
@@ -91,7 +92,7 @@ function RekodPenjagaan() {
             .filter((t) => t.parentId === parent.id)
             .sort((a, b) => +new Date(b.date) - +new Date(a.date))
         : [],
-    [parent],
+    [parent, trackers],
   );
 
   // Distinct days that actually have records (ascending), used for the date

@@ -1,0 +1,11 @@
+project_id = "xuvpeltbatoiguggsimo"
+
+# The admin-users function must skip gateway JWT verification.
+# `applyAsStaff` is called by anonymous visitors (their Authorization header
+# carries only the publishable key, not a user JWT), and browser CORS
+# preflight (OPTIONS) requests never send an Authorization header at all.
+# With verify_jwt = true the gateway 401s the preflight before our handler
+# runs, which the browser reports as a CORS failure. We do our own admin
+# check inside the function for the privileged actions.
+[functions.admin-users]
+verify_jwt = false

@@ -227,14 +227,22 @@ export const VISIBILITY_LABEL: Record<ContentVisibility, string> = {
   draft: "Draf",
 };
 
-// Extracts the YouTube video id from embed / watch / youtu.be URLs.
+// Extracts the YouTube video id from embed / watch / youtu.be / shorts / live URLs.
 export function youtubeId(url?: string): string | undefined {
   if (!url) return undefined;
   const m = url.match(
-    /(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([\w-]{11})/,
+    /(?:youtube(?:-nocookie)?\.com\/(?:embed\/|shorts\/|live\/|v\/|.*[?&]v=)|youtu\.be\/)([\w-]{11})/,
   );
   return m?.[1];
 }
+
+// Permissions a YouTube <iframe> needs. `encrypted-media` is required for
+// DRM-protected videos (e.g. VEVO/music) — without it they show
+// "Video unavailable". Note: DRM playback also needs a secure context
+// (HTTPS or localhost), so such videos won't play when the app is served
+// over a plain http:// LAN IP.
+export const YT_IFRAME_ALLOW =
+  "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
 
 // Thumbnail image for a YouTube URL (falls back to undefined if not parseable).
 export function youtubeThumb(url?: string): string | undefined {

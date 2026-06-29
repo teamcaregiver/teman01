@@ -3,7 +3,7 @@ import { StatCard } from "@/components/stat-card";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
-import { articles, parents, trackers, users, videos } from "@/lib/mock-data";
+import { useArticles, useParents, useTrackers, useUsers, useVideos } from "@/lib/data";
 import { Activity, BookOpen, Heart, Users } from "lucide-react";
 import { format } from "date-fns";
 
@@ -12,6 +12,11 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function AdminHome() {
+  const articles = useArticles();
+  const parents = useParents();
+  const trackers = useTrackers();
+  const users = useUsers();
+  const videos = useVideos();
   const recent = [...trackers].sort((a, b) => +new Date(b.date) - +new Date(a.date)).slice(0, 6);
   return (
     <div className="space-y-6">
@@ -36,11 +41,15 @@ function AdminHome() {
         <div className="divide-y divide-border">
           {recent.map((t) => {
             const p = parents.find((x) => x.id === t.parentId);
+            const v = t.vitalEntries?.[t.vitalEntries.length - 1];
             return (
               <div key={t.id} className="flex items-center justify-between py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{p?.fullName}</p>
-                  <p className="text-xs text-muted-foreground">{format(new Date(t.date), "dd MMM, HH:mm")} · TD {t.bpSystolic}/{t.bpDiastolic} · Gula {t.bloodSugar}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(t.date), "dd MMM, HH:mm")}
+                    {v && ` · TD ${v.bpSistolik ?? "-"}/${v.bpDiastolik ?? "-"} · Gula ${v.gulaDarah ?? "-"}`}
+                  </p>
                 </div>
                 <StatusBadge status={t.status} />
               </div>

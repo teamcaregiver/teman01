@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { parents, users, trackers } from "@/lib/mock-data";
+import { useParents, useUsers, useTrackers } from "@/lib/data";
 import { VitalCharts } from "@/components/vital-charts";
 import { StatusBadge } from "@/components/status-badge";
 import { format } from "date-fns";
@@ -13,9 +13,13 @@ export const Route = createFileRoute("/admin/warga-emas/$parentId")({
 
 function WargaDetail() {
   const { parentId } = useParams({ from: "/admin/warga-emas/$parentId" });
+  const parents = useParents();
+  const users = useUsers();
+  const trackers = useTrackers();
   const parent = parents.find((p) => p.id === parentId);
 
-  if (!parent) return <p>Warga emas tidak dijumpai.</p>;
+  if (!parent)
+    return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
 
   const staff = users.find((u) => u.id === parent.staffId);
   const anak = users.filter((u) => parent.anakIds.includes(u.id));

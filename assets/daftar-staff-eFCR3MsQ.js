@@ -1,0 +1,1 @@
+import{l as e}from"./createLucideIcon-BzxrTaJq.js";import{t}from"./index-DQ21Hv97.js";var n=e(),r=()=>(0,n.jsx)(t,{role:`staff`});export{r as component};

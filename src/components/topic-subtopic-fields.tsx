@@ -10,7 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Check, Plus, X } from "lucide-react";
-import { useTaxonomy, addTopic, addSubtopic } from "@/lib/taxonomy-store";
+import { useTaxonomy, addTopic, addSubtopic, TAXONOMY_QK } from "@/lib/taxonomy-store";
+import { useInvalidate } from "@/lib/data";
 import { toast } from "sonner";
 
 interface Props {
@@ -31,34 +32,43 @@ export function TopicSubtopicFields({
   topicRequired,
 }: Props) {
   const tax = useTaxonomy();
+  const invalidate = useInvalidate();
   const [newTopic, setNewTopic] = useState<string | null>(null);
   const [newSub, setNewSub] = useState<string | null>(null);
 
   const subOptions = topic ? (tax.subtopics[topic] ?? []) : [];
 
-  const commitTopic = () => {
+  const commitTopic = async () => {
     const name = (newTopic ?? "").trim();
     if (!name) return;
-    if (addTopic(name)) {
-      onTopicChange(name);
+    try {
+      const created = await addTopic(name);
+      onTopicChange(name); // select it whether newly created or pre-existing
       onSubtopicChange("");
-      toast.success(`Topik "${name}" ditambah`);
-    } else {
-      onTopicChange(name); // already exists — just select it
+      if (created) {
+        invalidate(TAXONOMY_QK);
+        toast.success(`Topik "${name}" ditambah`);
+      }
+      setNewTopic(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menambah topik");
     }
-    setNewTopic(null);
   };
 
-  const commitSub = () => {
+  const commitSub = async () => {
     const name = (newSub ?? "").trim();
     if (!name || !topic) return;
-    if (addSubtopic(topic, name)) {
+    try {
+      const created = await addSubtopic(topic, name);
       onSubtopicChange(name);
-      toast.success(`Subtopik "${name}" ditambah`);
-    } else {
-      onSubtopicChange(name);
+      if (created) {
+        invalidate(TAXONOMY_QK);
+        toast.success(`Subtopik "${name}" ditambah`);
+      }
+      setNewSub(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menambah subtopik");
     }
-    setNewSub(null);
   };
 
   return (

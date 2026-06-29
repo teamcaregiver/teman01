@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   CalendarClock, Car, MapPin, HeartHandshake, Stethoscope, Plus, ChevronLeft,
-  Phone, Star, UserCog, CreditCard, ClipboardList, Hourglass, Ban,
+  Phone, Star, UserCog, CreditCard, ClipboardList, Hourglass,
 } from "lucide-react";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 
@@ -87,15 +87,6 @@ function ServicePage() {
 
   const filtered = myBookings.filter(b => bucketOf(b) === tab);
 
-  const cancelBooking = async (b: Booking) => {
-    const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
-    if (error) return toast.error(error.message);
-    invalidate(qk.bookings);
-    setSelected(null);
-    setTab("cancelled");
-    toast.success("Tempahan dibatalkan.");
-  };
-
   const rescheduleBooking = async (b: Booking, date: string, time: string) => {
     const { error } = await supabase.from("bookings").update({ date, time }).eq("id", b.id);
     if (error) return toast.error(error.message);
@@ -150,7 +141,6 @@ function ServicePage() {
       <BookingDialog
         booking={selected}
         onClose={() => setSelected(null)}
-        onCancelBooking={cancelBooking}
         onReschedule={rescheduleBooking}
       />
     </div>
@@ -205,10 +195,9 @@ function BookingCard({ booking: b, onClick }: { booking: Booking; onClick: () =>
 }
 
 // ---- Booking detail popup ----
-function BookingDialog({ booking: b, onClose, onCancelBooking, onReschedule }: {
+function BookingDialog({ booking: b, onClose, onReschedule }: {
   booking: Booking | null;
   onClose: () => void;
-  onCancelBooking: (b: Booking) => void;
   onReschedule: (b: Booking, date: string, time: string) => void;
 }) {
   const parents = useParents();
@@ -227,9 +216,7 @@ function BookingDialog({ booking: b, onClose, onCancelBooking, onReschedule }: {
     setRTime(b?.time ?? "");
   }, [b?.id]);
 
-  // Actions are only available for upcoming bookings.
-  const canAct = !!b && bucketOf(b) === "upcoming";
-  const hasCaregiver = !!cg;
+  const canReschedule = !!b && bucketOf(b) === "upcoming";
 
   return (
     <Dialog open={!!b} onOpenChange={open => { if (!open) onClose(); }}>
@@ -283,8 +270,7 @@ function BookingDialog({ booking: b, onClose, onCancelBooking, onReschedule }: {
                 </Section>
               )}
 
-              {/* Actions: no caregiver → boleh batal; ada caregiver → hanya boleh jadual semula */}
-              {canAct && (
+              {canReschedule && (
                 <div className="border-t border-border pt-4">
                   {reschedule ? (
                     <div className="space-y-3">
@@ -313,22 +299,13 @@ function BookingDialog({ booking: b, onClose, onCancelBooking, onReschedule }: {
                         </Button>
                       </div>
                     </div>
-                  ) : hasCaregiver ? (
+                  ) : (
                     <div className="space-y-2">
                       <Button variant="outline" className="w-full" onClick={() => setReschedule(true)}>
                         <CalendarClock className="mr-1.5 h-4 w-4" /> Jadual Semula
                       </Button>
                       <p className="text-center text-[11px] text-muted-foreground">
-                        Caregiver telah ditetapkan — tempahan tidak boleh dibatalkan, hanya boleh dijadualkan semula.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Button variant="destructive" className="w-full" onClick={() => onCancelBooking(b)}>
-                        <Ban className="mr-1.5 h-4 w-4" /> Batalkan Tempahan
-                      </Button>
-                      <p className="text-center text-[11px] text-muted-foreground">
-                        Tempahan boleh dibatalkan kerana caregiver belum ditetapkan.
+                        Untuk membatalkan tempahan, sila hubungi admin.
                       </p>
                     </div>
                   )}

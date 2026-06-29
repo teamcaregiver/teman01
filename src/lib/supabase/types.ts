@@ -154,6 +154,19 @@ export type VideoRow = {
   created_at: string;
 };
 
+export type TopicRow = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
+export type SubtopicRow = {
+  id: string;
+  topic_id: string;
+  name: string;
+  created_at: string;
+};
+
 type Tbl<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -173,6 +186,8 @@ export interface Database {
       bookings: Tbl<BookingRow>;
       articles: Tbl<ArticleRow>;
       videos: Tbl<VideoRow>;
+      topics: Tbl<TopicRow>;
+      subtopics: Tbl<SubtopicRow>;
     };
     // Empty mapped types (NOT Record<string, never>, which would intersect every
     // table with `never` and break `.from()` typing).

@@ -48,6 +48,7 @@ import {
 import type { Video, ContentVisibility } from "@/lib/mock-data";
 import { useVideos, useInvalidate, qk } from "@/lib/data";
 import { supabase } from "@/lib/supabase/client";
+import { uploadContentPdf } from "@/lib/storage";
 import { TopicSubtopicFields } from "@/components/topic-subtopic-fields";
 import {
   ExternalLink,
@@ -90,6 +91,7 @@ function VideosPage() {
   const [videoPreview, setVideoPreview] = useState<Video | null>(null);
   const [pdfPreview, setPdfPreview] = useState<Video | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [uploading, setUploading] = useState(false);
 
   const allSelected = list.length > 0 && selected.size === list.length;
 
@@ -112,13 +114,18 @@ function VideosPage() {
     setDialog({ open: true, mode: "edit", video: v });
   };
 
-  const handlePdfUpload = (file?: File) => {
+  const handlePdfUpload = async (file?: File) => {
     if (!file) return;
-    setForm((f) => ({
-      ...f,
-      pdfUrl: URL.createObjectURL(file),
-      pdfName: file.name,
-    }));
+    setUploading(true);
+    try {
+      const { url, name } = await uploadContentPdf(file, "videos");
+      setForm((f) => ({ ...f, pdfUrl: url, pdfName: name }));
+      toast.success("PDF berjaya dimuat naik");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Muat naik PDF gagal");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -424,13 +431,15 @@ function VideosPage() {
 
             <Field label="Fail PDF Sokongan (pilihan)">
               <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" asChild>
+                <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
                   <label className="cursor-pointer">
-                    <Upload className="mr-1 h-3.5 w-3.5" /> Muat Naik PDF
+                    <Upload className="mr-1 h-3.5 w-3.5" />
+                    {uploading ? "Memuat naik..." : "Muat Naik PDF"}
                     <input
                       type="file"
                       accept="application/pdf"
                       className="hidden"
+                      disabled={uploading}
                       onChange={(e) => handlePdfUpload(e.target.files?.[0])}
                     />
                   </label>
@@ -487,7 +496,7 @@ function VideosPage() {
             >
               Batal
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={uploading}>
               {dialog.mode === "add" ? "Simpan Video" : "Kemaskini"}
             </Button>
           </DialogFooter>

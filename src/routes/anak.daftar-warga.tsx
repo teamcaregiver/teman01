@@ -47,10 +47,14 @@ function RegisterParent() {
     const get = (k: string) => (fd.get(k) as string | null)?.trim() ?? "";
     setSaving(true);
     try {
-      // Insert the elderly, then auto-link it to the logged-in anak account.
-      const { data: parent, error } = await supabase
+      // Generate the UUID client-side so we can link parent_anak without needing
+      // a SELECT after insert (the SELECT would fail RLS: anak_linked_to is false
+      // until the parent_anak row exists).
+      const newParentId = crypto.randomUUID();
+      const { error } = await supabase
         .from("parents")
         .insert({
+          id: newParentId,
           full_name: get("fullName"),
           ic: get("ic"),
           birth_date: get("birthDate") || null,
@@ -70,14 +74,12 @@ function RegisterParent() {
           status_mobiliti: get("statusMobiliti") || null,
           status_kognitif: get("statusKognitif") || null,
           sekatan_pemakanan: get("sekatanPemakanan") || null,
-        })
-        .select("id")
-        .single();
+        });
       if (error) throw error;
 
       const { error: linkErr } = await supabase
         .from("parent_anak")
-        .insert({ parent_id: parent.id, anak_id: user.id });
+        .insert({ parent_id: newParentId, anak_id: user.id });
       if (linkErr) throw linkErr;
 
       toast.success("Warga emas berjaya didaftarkan dan dipautkan ke akaun anda.");

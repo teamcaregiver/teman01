@@ -8,6 +8,8 @@ export interface User {
   role: Role;
   status: "active" | "pending" | "rejected" | "inactive";
   phone?: string;
+  /** Public URL of the profile photo, when the user has uploaded one. */
+  avatar?: string;
 }
 
 export interface Parent {
@@ -34,6 +36,8 @@ export interface Parent {
   statusMobiliti?: string;
   statusKognitif?: string;
   sekatanPemakanan?: string;
+  /** Set when the resident is archived (hidden from active lists). */
+  archivedAt?: string;
 }
 
 export type TrackerStatus = "normal" | "attention" | "critical";
@@ -189,6 +193,7 @@ export interface Booking {
   caregiverId?: string; // set by admin when a caregiver is assigned
   price?: number; // RM
   paymentStatus?: PaymentStatus;
+  paymentNotes?: string;
 }
 
 export type ContentVisibility = "published" | "draft";

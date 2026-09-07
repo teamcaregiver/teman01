@@ -92,15 +92,16 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
-      // Admin-created staff/anak account — always `active`. Role is fixed
-      // server-side from the (admin-only) request, never from client metadata.
+      // Admin-created admin/staff/anak account — always `active`. Role is
+      // fixed server-side from the (admin-only) request, never from client
+      // metadata.
       case "adminCreateUser": {
         await assertAdmin(req);
         const { name, email, password, phone, role } = body as {
           name: string; email: string; password: string;
-          phone?: string; role: "staff" | "anak";
+          phone?: string; role: "admin" | "staff" | "anak";
         };
-        if (role !== "staff" && role !== "anak") {
+        if (role !== "admin" && role !== "staff" && role !== "anak") {
           return json({ error: "Peranan tidak sah." }, 400);
         }
 

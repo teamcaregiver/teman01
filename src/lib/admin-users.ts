@@ -7,7 +7,9 @@ import type { Role, UserStatus } from "@/lib/supabase/types";
 // user's JWT is attached automatically by supabase.functions.invoke, so the
 // function can verify admin rights for the privileged actions.
 
-type CreatableRole = Exclude<Role, "admin">;
+// Admin accounts are creatable too — the Edge Function still verifies that the
+// *caller* is an admin before honouring any role.
+type CreatableRole = Role;
 
 async function invokeAdmin<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke("admin-users", { body });
@@ -42,7 +44,7 @@ export function applyAsStaff(input: {
   return invokeAdmin<{ ok: true }>({ action: "applyAsStaff", ...input });
 }
 
-/** Admin-created staff/anak account. Always `active`; role fixed server-side. */
+/** Admin-created admin/staff/anak account. Always `active`; role validated server-side. */
 export function adminCreateUser(input: {
   name: string;
   email: string;

@@ -3,7 +3,16 @@ import { Heart, LogOut } from "lucide-react";
 import { anakNavItems } from "@/components/anak-bottom-nav";
 import { signOut, useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+
+const initialsOf = (name?: string) =>
+  (name ?? "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0]?.toUpperCase())
+    .join("");
 
 export function AnakSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -43,7 +52,23 @@ export function AnakSidebar() {
         })}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="space-y-1 border-t border-border p-3">
+        <Link
+          to="/anak/profil"
+          title="Profil Saya"
+          className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <Avatar className="h-8 w-8 shrink-0">
+            {user?.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+            <AvatarFallback className="gradient-teal text-[10px] font-bold text-teal-foreground">
+              {initialsOf(user?.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{user?.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+          </div>
+        </Link>
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"

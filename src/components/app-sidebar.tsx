@@ -14,7 +14,6 @@ import {
 import {
   Heart,
   Users,
-  UserPlus,
   BookOpen,
   Video,
   Activity,
@@ -25,12 +24,20 @@ import {
 } from "lucide-react";
 import { signOut, useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+const initialsOf = (name?: string) =>
+  (name ?? "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0]?.toUpperCase())
+    .join("");
 
 const adminNav = [
   { title: "Ringkasan", url: "/admin", icon: LayoutDashboard, exact: true },
   { title: "Pengurusan Staf", url: "/admin/staff", icon: Users },
   { title: "Warga Emas", url: "/admin/warga-emas", icon: Heart },
-  { title: "Daftar Warga Emas", url: "/admin/warga-emas/baru", icon: UserPlus },
   { title: "Artikel", url: "/admin/artikel", icon: BookOpen },
   { title: "Video", url: "/admin/video", icon: Video },
   { title: "Rekod Harian", url: "/admin/tracker", icon: Activity },
@@ -91,12 +98,24 @@ export function AppSidebar({ variant }: { variant: "admin" | "staff" }) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-2">
-        <div className="px-2 py-1">
-          <p className="truncate text-xs font-medium">{user?.name}</p>
-          <p className="truncate text-[11px] text-muted-foreground">
-            {user?.email}
-          </p>
-        </div>
+        <Link
+          to={variant === "admin" ? "/admin/profil" : "/staf/profil"}
+          title="Profil Saya"
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <Avatar className="h-7 w-7 shrink-0">
+            {user?.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+            <AvatarFallback className="gradient-teal text-[10px] font-bold text-teal-foreground">
+              {initialsOf(user?.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium">{user?.name}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {user?.email}
+            </p>
+          </div>
+        </Link>
         <Button
           variant="ghost"
           size="sm"

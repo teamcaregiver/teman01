@@ -20,13 +20,36 @@ export const Route = createFileRoute("/admin/staff")({
   component: StaffPage,
 });
 
-const EMPTY_ADD = { name: "", email: "", phone: "", password: "" };
+/** Roles this page manages. `anak` accounts are not staff and stay out of it. */
+type ManagedRole = "admin" | "staff";
+
+const ROLE_OPTIONS: { value: ManagedRole; label: string }[] = [
+  { value: "staff", label: "Staf" },
+  { value: "admin", label: "Admin" },
+];
+
+const roleTone: Record<ManagedRole, string> = {
+  admin: "bg-lavender/25 text-lavender-foreground",
+  staff: "bg-teal/20 text-teal-foreground",
+};
+
+/** Mirrors the DB trigger message in migration 0006 — kept identical on purpose. */
+const LAST_ADMIN_MSG =
+  "Sekurang-kurangnya satu akaun Admin aktif mesti kekal dalam sistem.";
+
+const EMPTY_ADD = {
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  role: "staff" as ManagedRole,
+};
 
 async function fetchStaff(): Promise<User[]> {
   const { data, error } = await supabase
     .from("profiles")
     .select("id,name,email,role,status,phone,created_at")
-    .eq("role", "staff")
+    .in("role", ["admin", "staff"])
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []).map((p) => ({
@@ -49,14 +72,34 @@ function StaffPage() {
   const [addForm, setAddForm] = useState(EMPTY_ADD);
   const [saving, setSaving] = useState(false);
   const [editTarget, setEditTarget] = useState<User | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", phone: "", status: "" as User["status"] });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    role: "staff" as ManagedRole,
+    status: "" as User["status"],
+  });
+  const [editSaving, setEditSaving] = useState(false);
 
+  const needle = q.trim().toLowerCase();
   const filtered = list.filter(
-    (u) => u.name.toLowerCase().includes(q.toLowerCase()) || u.email.includes(q),
+    (u) =>
+      u.name.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle),
   );
 
-  const updateStatus = async (id: string, status: User["status"]) => {
-    const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
+  // Frontend half of the "keep one active admin" rule. The DB trigger enforces
+  // the same thing, so a stale list here can never actually bypass it.
+  const activeAdminCount = list.filter(
+    (u) => u.role === "admin" && u.status === "active",
+  ).length;
+  const isLastActiveAdmin = (u: User) =>
+    u.role === "admin" && u.status === "active" && activeAdminCount <= 1;
+
+  const updateStatus = async (u: User, status: User["status"]) => {
+    if (status !== "active" && isLastActiveAdmin(u)) {
+      toast.error(LAST_ADMIN_MSG);
+      return;
+    }
+    const { error } = await supabase.from("profiles").update({ status }).eq("id", u.id);
     if (error) return toast.error(error.message);
     toast.success("Status staf dikemaskini");
     refresh();
@@ -64,7 +107,12 @@ function StaffPage() {
 
   const openEdit = (u: User) => {
     setEditTarget(u);
-    setEditForm({ name: u.name, phone: u.phone ?? "", status: u.status });
+    setEditForm({
+      name: u.name,
+      phone: u.phone ?? "",
+      role: (u.role === "admin" ? "admin" : "staff") as ManagedRole,
+      status: u.status,
+    });
   };
 
   const handleAdd = async () => {
@@ -72,16 +120,29 @@ function StaffPage() {
       toast.error("Sila isi nama, emel dan kata laluan.");
       return;
     }
+    if (!/^\S+@\S+\.\S+$/.test(addForm.email.trim())) {
+      toast.error("Format emel tidak sah.");
+      return;
+    }
+    if (addForm.password.length < 6) {
+      toast.error("Kata laluan mesti sekurang-kurangnya 6 aksara.");
+      return;
+    }
+    if (addForm.role !== "admin" && addForm.role !== "staff") {
+      toast.error("Sila pilih peranan.");
+      return;
+    }
     setSaving(true);
     try {
       await adminCreateUser({
-        name: addForm.name,
-        email: addForm.email,
-        phone: addForm.phone,
+        name: addForm.name.trim(),
+        email: addForm.email.trim(),
+        phone: addForm.phone.trim(),
         password: addForm.password,
-        role: "staff",
+        role: addForm.role,
       });
-      toast.success(`Staf ${addForm.name} berjaya ditambah`);
+      const roleLabel = addForm.role === "admin" ? "Admin" : "Staf";
+      toast.success(`${roleLabel} ${addForm.name.trim()} berjaya ditambah`);
       setAddForm(EMPTY_ADD);
       setAddDialog(false);
       refresh();
@@ -98,10 +159,22 @@ function StaffPage() {
       toast.error("Nama tidak boleh kosong.");
       return;
     }
+    const losesAdmin = editForm.role !== "admin" || editForm.status !== "active";
+    if (losesAdmin && isLastActiveAdmin(editTarget)) {
+      toast.error(LAST_ADMIN_MSG);
+      return;
+    }
+    setEditSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ name: editForm.name, phone: editForm.phone, status: editForm.status })
+      .update({
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim(),
+        role: editForm.role,
+        status: editForm.status,
+      })
       .eq("id", editTarget.id);
+    setEditSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Maklumat staf dikemaskini");
     setEditTarget(null);
@@ -144,47 +217,63 @@ function StaffPage() {
           {!isLoading && filtered.length === 0 && (
             <p className="p-6 text-center text-sm text-muted-foreground">Tiada staf dijumpai.</p>
           )}
-          {filtered.map((u, i) => (
-            <motion.div
-              key={u.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
-              className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full gradient-teal font-display text-sm font-bold text-teal-foreground">
-                  {u.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+          {filtered.map((u, i) => {
+            const role: ManagedRole = u.role === "admin" ? "admin" : "staff";
+            const lastAdmin = isLastActiveAdmin(u);
+            return (
+              <motion.div
+                key={u.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full gradient-teal font-display text-sm font-bold text-teal-foreground">
+                    {u.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="min-w-0 truncate font-medium">{u.name}</p>
+                      <Badge variant="outline" className={roleTone[role]}>
+                        {role === "admin" ? "Admin" : "Staf"}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{u.email} · {u.phone}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{u.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{u.email} · {u.phone}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={tone[u.status]}>{label[u.status]}</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => openEdit(u)}>
+                    <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                  </Button>
+                  {u.status === "pending" && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => updateStatus(u, "active")}>
+                        <Check className="mr-1 h-3.5 w-3.5" /> Lulus
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => updateStatus(u, "rejected")}>
+                        <X className="mr-1 h-3.5 w-3.5" /> Tolak
+                      </Button>
+                    </>
+                  )}
+                  {u.status === "active" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title={lastAdmin ? LAST_ADMIN_MSG : undefined}
+                      onClick={() => updateStatus(u, "inactive")}
+                    >
+                      Nyahaktif
+                    </Button>
+                  )}
+                  {u.status === "inactive" && (
+                    <Button size="sm" variant="ghost" onClick={() => updateStatus(u, "active")}>Aktifkan</Button>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className={tone[u.status]}>{label[u.status]}</Badge>
-                <Button size="sm" variant="ghost" onClick={() => openEdit(u)}>
-                  <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-                </Button>
-                {u.status === "pending" && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => updateStatus(u.id, "active")}>
-                      <Check className="mr-1 h-3.5 w-3.5" /> Lulus
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => updateStatus(u.id, "rejected")}>
-                      <X className="mr-1 h-3.5 w-3.5" /> Tolak
-                    </Button>
-                  </>
-                )}
-                {u.status === "active" && (
-                  <Button size="sm" variant="ghost" onClick={() => updateStatus(u.id, "inactive")}>Nyahaktif</Button>
-                )}
-                {u.status === "inactive" && (
-                  <Button size="sm" variant="ghost" onClick={() => updateStatus(u.id, "active")}>Aktifkan</Button>
-                )}
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </Card>
 
@@ -204,12 +293,28 @@ function StaffPage() {
             <Field label="No. Telefon">
               <Input value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} placeholder="012-3456789" />
             </Field>
+            <Field label="Peranan *">
+              <Select
+                value={addForm.role}
+                onValueChange={v => setAddForm(f => ({ ...f, role: v as ManagedRole }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Pilih peranan" /></SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Admin boleh urus semua akaun & tetapan sistem. Staf hanya urus penjagaan.
+              </p>
+            </Field>
             <Field label="Kata Laluan Sementara *">
               <PasswordInput value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} placeholder="Min. 6 aksara" />
             </Field>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAddDialog(false)}>Batal</Button>
+            <Button variant="ghost" onClick={() => setAddDialog(false)} disabled={saving}>Batal</Button>
             <Button onClick={handleAdd} disabled={saving}>{saving ? "Menyimpan..." : "Tambah Staf"}</Button>
           </DialogFooter>
         </DialogContent>
@@ -228,6 +333,19 @@ function StaffPage() {
             <Field label="No. Telefon">
               <Input value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
             </Field>
+            <Field label="Peranan *">
+              <Select
+                value={editForm.role}
+                onValueChange={v => setEditForm(f => ({ ...f, role: v as ManagedRole }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
             <Field label="Status Akaun">
               <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v as User["status"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -239,10 +357,15 @@ function StaffPage() {
                 </SelectContent>
               </Select>
             </Field>
+            {editTarget && isLastActiveAdmin(editTarget) && (
+              <p className="rounded-lg bg-status-attention/10 p-2.5 text-[11px] text-muted-foreground">
+                Ini satu-satunya Admin aktif. {LAST_ADMIN_MSG}
+              </p>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditTarget(null)}>Batal</Button>
-            <Button onClick={handleEdit}>Simpan</Button>
+            <Button variant="ghost" onClick={() => setEditTarget(null)} disabled={editSaving}>Batal</Button>
+            <Button onClick={handleEdit} disabled={editSaving}>{editSaving ? "Menyimpan..." : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

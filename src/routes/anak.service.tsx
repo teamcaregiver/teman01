@@ -272,6 +272,7 @@ function BookingDialog({ booking: b, onClose, onReschedule }: {
 
               {canReschedule && (
                 <div className="border-t border-border pt-4">
+              {/* Jadual Semula disembunyikan buat sementara
                   {reschedule ? (
                     <div className="space-y-3">
                       <p className="text-xs font-semibold">Jadual Semula</p>
@@ -309,6 +310,10 @@ function BookingDialog({ booking: b, onClose, onReschedule }: {
                       </p>
                     </div>
                   )}
+              */}
+                  <p className="text-center text-[11px] text-muted-foreground">
+                    Untuk membatalkan tempahan, sila hubungi admin.
+                  </p>
                 </div>
               )}
             </div>

@@ -6,11 +6,28 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { adminCreateUser } from "@/lib/admin-users";
+import { useInvalidate, qk } from "@/lib/data";
+import {
+  RELATIONSHIP_OPTIONS,
+  RELATIONSHIP_OTHER,
+  joinRelationship,
+} from "@/lib/relationship";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 
 export const Route = createFileRoute("/admin/warga-emas/baru")({
   component: NewParent,
@@ -22,8 +39,29 @@ const STATUS_KOGNITIF = ["Normal", "Ringan", "Sederhana", "Teruk"];
 
 function NewParent() {
   const navigate = useNavigate();
+  const invalidate = useInvalidate();
   const [createAnak, setCreateAnak] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [relationship, setRelationship] = useState("");
+  const [relationshipOther, setRelationshipOther] = useState("");
+
+  // Unsaved-change guard: any edit arms it, a successful save disarms it.
+  const [dirty, setDirty] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const markDirty = () => setDirty(true);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  const backToList = () => navigate({ to: "/admin/warga-emas" });
+  const requestBack = () => (dirty ? setConfirmLeave(true) : backToList());
 
   const { data: anakOptions = [] } = useQuery({
     queryKey: ["anak-options"],
@@ -42,6 +80,12 @@ function NewParent() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const get = (k: string) => (fd.get(k) as string | null)?.trim() ?? "";
+
+    if (relationship === RELATIONSHIP_OTHER && !relationshipOther.trim()) {
+      toast.error("Sila nyatakan hubungan.");
+      return;
+    }
+
     setSaving(true);
     try {
       // 1) Resolve the anak account (create a new one, or link an existing one).
@@ -72,7 +116,7 @@ function NewParent() {
           medical_condition: get("medicalCondition"),
           medication: get("medication"),
           emergency_contact: get("emergencyContact"),
-          relationship: get("relationship"),
+          relationship: joinRelationship(relationship, relationshipOther),
           jenis_darah: get("jenisDarah") || null,
           status_mobiliti: get("statusMobiliti") || null,
           status_kognitif: get("statusKognitif") || null,
@@ -95,6 +139,8 @@ function NewParent() {
         if (linkErr) throw linkErr;
       }
 
+      setDirty(false);
+      invalidate(qk.parents);
       toast.success("Warga emas berjaya didaftarkan");
       navigate({ to: "/admin/warga-emas" });
     } catch (err) {
@@ -106,11 +152,21 @@ function NewParent() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="-ml-2 h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+        onClick={requestBack}
+      >
+        <ChevronLeft className="mr-1 h-4 w-4" /> Kembali ke senarai
+      </Button>
+
       <div>
         <h1 className="font-display text-2xl font-bold">Daftar Warga Emas</h1>
         <p className="text-sm text-muted-foreground">Isi maklumat lengkap dan pautkan kepada akaun anak.</p>
       </div>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onChange={markDirty} onInput={markDirty}>
         <div className="space-y-4">
           {/* === Maklumat Peribadi === */}
           <SectionCard title="Maklumat Peribadi">
@@ -119,7 +175,7 @@ function NewParent() {
               <Field label="No. IC *"><Input name="ic" required placeholder="510304-08-5432" /></Field>
               <Field label="Tarikh Lahir *"><Input name="birthDate" required type="date" /></Field>
               <Field label="Jantina *">
-                <Select name="gender" defaultValue="P">
+                <Select name="gender" defaultValue="P" onValueChange={markDirty}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="L">Lelaki</SelectItem>
@@ -128,7 +184,34 @@ function NewParent() {
                 </Select>
               </Field>
               <Field label="No. Telefon *"><Input name="phone" required placeholder="03-2092 1122" /></Field>
-              <Field label="Hubungan dengan Anak"><Input name="relationship" placeholder="Cth: Ibu / Ayah / Datuk" /></Field>
+              <Field label="Hubungan dengan Anak">
+                <Select
+                  value={relationship}
+                  onValueChange={(v) => {
+                    setRelationship(v);
+                    markDirty();
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Pilih hubungan" /></SelectTrigger>
+                  <SelectContent>
+                    {RELATIONSHIP_OPTIONS.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                    <SelectItem value={RELATIONSHIP_OTHER}>{RELATIONSHIP_OTHER}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {relationship === RELATIONSHIP_OTHER && (
+                <div className="md:col-span-2">
+                  <Field label="Nyatakan Hubungan *">
+                    <Input
+                      value={relationshipOther}
+                      onChange={(e) => setRelationshipOther(e.target.value)}
+                      placeholder="Cth: Jiran, penjaga sah"
+                    />
+                  </Field>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <Field label="Alamat *"><Textarea name="address" rows={2} required placeholder="No. rumah, jalan, poskod, bandar" /></Field>
               </div>
@@ -139,7 +222,7 @@ function NewParent() {
           <SectionCard title="Maklumat Perubatan">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Jenis Darah">
-                <Select name="jenisDarah">
+                <Select name="jenisDarah" onValueChange={markDirty}>
                   <SelectTrigger><SelectValue placeholder="Pilih jenis darah" /></SelectTrigger>
                   <SelectContent>
                     {JENIS_DARAH.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}
@@ -147,7 +230,7 @@ function NewParent() {
                 </Select>
               </Field>
               <Field label="Status Mobiliti">
-                <Select name="statusMobiliti">
+                <Select name="statusMobiliti" onValueChange={markDirty}>
                   <SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger>
                   <SelectContent>
                     {STATUS_MOBILITI.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -155,7 +238,7 @@ function NewParent() {
                 </Select>
               </Field>
               <Field label="Status Kognitif">
-                <Select name="statusKognitif">
+                <Select name="statusKognitif" onValueChange={markDirty}>
                   <SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger>
                   <SelectContent>
                     {STATUS_KOGNITIF.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -207,7 +290,12 @@ function NewParent() {
 
             <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4">
               <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" className="mt-1" checked={createAnak} onChange={(e) => setCreateAnak(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={createAnak}
+                  onChange={(e) => { setCreateAnak(e.target.checked); markDirty(); }}
+                />
                 <div>
                   <p className="text-sm font-medium">Daftar akaun Anak sekali</p>
                   <p className="text-xs text-muted-foreground">Pilih jika anak belum ada akaun dalam sistem.</p>
@@ -223,7 +311,7 @@ function NewParent() {
               ) : (
                 <div className="mt-4">
                   <Field label="Pautkan kepada Anak Sedia Ada">
-                    <Select name="linkAnakId">
+                    <Select name="linkAnakId" onValueChange={markDirty}>
                       <SelectTrigger><SelectValue placeholder="Pilih anak" /></SelectTrigger>
                       <SelectContent>
                         {anakOptions.map((s) => (
@@ -238,11 +326,28 @@ function NewParent() {
           </SectionCard>
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => navigate({ to: "/admin/warga-emas" })}>Batal</Button>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={requestBack} disabled={saving}>Batal</Button>
           <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan & Daftar"}</Button>
         </div>
       </form>
+
+      <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Buang maklumat yang belum disimpan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Anda telah mengisi borang ini tetapi belum menyimpannya. Jika anda
+              keluar sekarang, tiada rekod warga emas akan dicipta dan maklumat
+              yang diisi akan hilang.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Teruskan Mengisi</AlertDialogCancel>
+            <AlertDialogAction onClick={backToList}>Keluar Tanpa Simpan</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

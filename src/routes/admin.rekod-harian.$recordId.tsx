@@ -4,15 +4,20 @@ import { useParents, useTrackers, useUsers } from "@/lib/data";
 import { RecordReport } from "@/components/record-report";
 import { VitalCharts } from "@/components/vital-charts";
 import { StatusBadge } from "@/components/status-badge";
+import { validateTrackerSearch } from "@/lib/tracker-filters";
 import { format } from "date-fns";
 import { ChevronLeft, HeartPulse } from "lucide-react";
 
+// Mirrors the Rekod Harian list schema so the Back link can hand the admin
+// their filters back exactly as they left them.
 export const Route = createFileRoute("/admin/rekod-harian/$recordId")({
+  validateSearch: validateTrackerSearch,
   component: RekodHarianDetail,
 });
 
 function RekodHarianDetail() {
   const { recordId } = useParams({ from: "/admin/rekod-harian/$recordId" });
+  const search = Route.useSearch();
   const parents = useParents();
   const trackers = useTrackers();
   const users = useUsers();
@@ -26,6 +31,7 @@ function RekodHarianDetail() {
     <div className="mx-auto max-w-5xl space-y-5">
       <Link
         to="/admin/tracker"
+        search={search}
         className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" /> Kembali ke Rekod Harian

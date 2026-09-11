@@ -30,7 +30,28 @@ function rowToUser(p: ProfileRow): User {
     role: p.role as Role,
     status: p.status,
     phone: p.phone ?? undefined,
+    avatar: p.avatar_url ?? undefined,
   };
+}
+
+// ---- change notification ----
+// useAuth() keeps per-hook state, so a profile edit has to fan out to every
+// mounted consumer (sidebar avatar, profile page, ...).
+type Listener = (u: User | null) => void;
+const listeners = new Set<Listener>();
+
+function emit(u: User | null) {
+  listeners.forEach((fn) => fn(u));
+}
+
+/** Re-read the signed-in user's profile and push it to every useAuth(). */
+export async function refreshCurrentUser(): Promise<User | null> {
+  const { data } = await supabase.auth.getSession();
+  const id = data.session?.user.id;
+  const profile = id ? await fetchProfile(id) : null;
+  cacheUser(profile);
+  emit(profile);
+  return profile;
 }
 
 async function fetchProfile(userId: string): Promise<User | null> {
@@ -144,6 +165,8 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true;
 
+    listeners.add(setUser);
+
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
       if (data.session?.user) {
@@ -176,6 +199,7 @@ export function useAuth() {
 
     return () => {
       mounted = false;
+      listeners.delete(setUser);
       sub.subscription.unsubscribe();
     };
   }, []);

@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -25,15 +26,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { BookingStatusPill } from "@/components/booking-status-pill";
 import {
   SERVICE_TYPES,
   TRANSPORT_MODES,
   BOOKING_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
 } from "@/lib/mock-data";
-import type { Booking, BookingStatus } from "@/lib/mock-data";
+import type { Booking, BookingStatus, PaymentStatus } from "@/lib/mock-data";
 import {
-  useBookings,
+  useBookingsQuery,
   useParents,
   useUsers,
   useCaregivers,
@@ -42,11 +44,14 @@ import {
   qk,
 } from "@/lib/data";
 import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-store";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   CheckCircle2,
   ClipboardList,
+  CreditCard,
   Eye,
   FileText,
   MapPin,
@@ -59,14 +64,6 @@ export const Route = createFileRoute("/admin/servis")({
   component: ServiceMonitoring,
 });
 
-const statusTone: Record<BookingStatus, string> = {
-  pending: "bg-status-attention/15 text-status-attention",
-  confirmed: "bg-teal/20 text-teal-foreground",
-  ongoing: "bg-primary/15 text-primary",
-  completed: "bg-status-normal/15 text-status-normal",
-  cancelled: "bg-muted text-muted-foreground",
-};
-
 type FilterKey = "all" | BookingStatus;
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -78,24 +75,18 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "cancelled", label: "Dibatalkan" },
 ];
 
-function StatusPill({ status }: { status: BookingStatus }) {
-  return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${statusTone[status]}`}
-    >
-      {BOOKING_STATUS_LABEL[status]}
-    </span>
-  );
-}
-
 function ServiceMonitoring() {
-  const bookings = useBookings();
+  const bookingsQ = useBookingsQuery();
+  const bookings = bookingsQ.data ?? [];
   const parents = useParents();
   const users = useUsers();
   const getCaregiver = useGetCaregiver();
   const invalidate = useInvalidate();
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [selected, setSelected] = useState<Booking | null>(null);
+  // Track the id, not a snapshot: after any mutation the dialog re-reads the
+  // refreshed row from the list instead of being patched by hand.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = bookings.find((b) => b.id === selectedId) ?? null;
 
   const sorted = [...bookings].sort(
     (a, b) =>
@@ -117,7 +108,6 @@ function ServiceMonitoring() {
   const setStatus = async (b: Booking, status: BookingStatus) => {
     const { error } = await supabase.from("bookings").update({ status }).eq("id", b.id);
     if (error) return toast.error(error.message);
-    setSelected((prev) => (prev && prev.id === b.id ? { ...prev, status } : prev));
     invalidate(qk.bookings);
     toast.success(`Status dikemas kini: ${BOOKING_STATUS_LABEL[status]}`);
   };
@@ -128,11 +118,25 @@ function ServiceMonitoring() {
       .update({ caregiver_id: caregiverId || null })
       .eq("id", b.id);
     if (error) return toast.error(error.message);
-    setSelected((prev) =>
-      prev && prev.id === b.id ? { ...prev, caregiverId: caregiverId || undefined } : prev,
-    );
     invalidate(qk.bookings);
     toast.success(caregiverId ? "Caregiver ditetapkan" : "Caregiver dikeluarkan");
+  };
+
+  /** Admin-only pricing. The DB trigger in migration 0008 enforces the same rule. */
+  const savePayment = async (
+    b: Booking,
+    patch: { price: number | null; paymentStatus: PaymentStatus | null; paymentNotes: string },
+  ) => {
+    const { error } = await supabase
+      .from("bookings")
+      .update({
+        price: patch.price,
+        payment_status: patch.paymentStatus,
+        payment_notes: patch.paymentNotes.trim() || null,
+      })
+      .eq("id", b.id);
+    if (error) throw new Error(error.message);
+    invalidate(qk.bookings);
   };
 
   return (
@@ -165,6 +169,7 @@ function ServiceMonitoring() {
 
       {/* Bookings table */}
       <Card className="overflow-hidden border-border/60 p-0">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -179,13 +184,45 @@ function ServiceMonitoring() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  Tiada tempahan servis.
+            {bookingsQ.isPending &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`s${i}`} className="hover:bg-transparent">
+                  <TableCell colSpan={8}>
+                    <Skeleton className="h-9 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))}
+
+            {bookingsQ.isError && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="py-10 text-center">
+                  <p className="text-sm font-medium">Gagal memuatkan tempahan</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {(bookingsQ.error as Error).message}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => void bookingsQ.refetch()}
+                  >
+                    Cuba lagi
+                  </Button>
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!bookingsQ.isPending && !bookingsQ.isError && rows.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="py-10 text-center">
+                  <p className="text-sm font-medium">
+                    {filter === "all" ? "Tiada tempahan servis" : "Tiada tempahan dalam status ini"}
+                  </p>
+                  <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                    {filter === "all"
+                      ? "Tempahan yang dihantar oleh anak akan dipaparkan di sini."
+                      : "Cuba pilih tab status yang lain."}
+                  </p>
                 </TableCell>
               </TableRow>
             )}
@@ -196,13 +233,30 @@ function ServiceMonitoring() {
                 : undefined;
               const svc = SERVICE_TYPES.find((s) => s.key === b.serviceType);
               const cg = getCaregiver(b.caregiverId);
+              const when = format(new Date(`${b.date}T${b.time}`), "dd MMM yyyy, HH:mm");
               return (
-                <TableRow key={b.id}>
+                <TableRow
+                  key={b.id}
+                  tabIndex={0}
+                  aria-label={`Lihat tempahan ${svc?.label ?? b.serviceType} — ${anak?.name ?? "pelanggan"} pada ${when}`}
+                  className="cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                  onClick={(e) => {
+                    // Let controls inside the row keep their own behaviour.
+                    if ((e.target as HTMLElement).closest("a,button,input,select,[role='checkbox']")) {
+                      return;
+                    }
+                    setSelectedId(b.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedId(b.id);
+                    }
+                  }}
+                >
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {format(
-                      new Date(`${b.date}T${b.time}`),
-                      "dd MMM yyyy, HH:mm",
-                    )}
+                    {when}
                   </TableCell>
                   <TableCell className="font-medium">
                     {anak?.name ?? "—"}
@@ -224,13 +278,13 @@ function ServiceMonitoring() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <StatusPill status={b.status} />
+                    <BookingStatusPill status={b.status} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setSelected(b)}
+                      onClick={() => setSelectedId(b.id)}
                     >
                       <Eye className="mr-1 h-3.5 w-3.5" /> Lihat
                     </Button>
@@ -240,22 +294,31 @@ function ServiceMonitoring() {
             })}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       {/* Detail pop-up */}
       <Dialog
-        open={!!selected}
+        open={!!selectedId}
         onOpenChange={(open) => {
-          if (!open) setSelected(null);
+          if (!open) setSelectedId(null);
         }}
       >
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          {selected && (
+          {selected ? (
             <ServiceDetail
               booking={selected}
               onSetStatus={setStatus}
               onAssignCaregiver={assignCaregiver}
+              onSavePayment={savePayment}
             />
+          ) : (
+            <div className="py-10 text-center">
+              <p className="text-sm font-medium">Tempahan tidak dijumpai</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tempahan ini mungkin telah dipadam atau dimuat semula.
+              </p>
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -267,10 +330,15 @@ function ServiceDetail({
   booking: b,
   onSetStatus,
   onAssignCaregiver,
+  onSavePayment,
 }: {
   booking: Booking;
   onSetStatus: (b: Booking, status: BookingStatus) => void;
   onAssignCaregiver: (b: Booking, caregiverId: string) => void;
+  onSavePayment: (
+    b: Booking,
+    patch: { price: number | null; paymentStatus: PaymentStatus | null; paymentNotes: string },
+  ) => Promise<void>;
 }) {
   const users = useUsers();
   const parents = useParents();
@@ -289,7 +357,7 @@ function ServiceDetail({
           <DialogTitle className="font-display text-lg">
             {svc?.label}
           </DialogTitle>
-          <StatusPill status={b.status} />
+          <BookingStatusPill status={b.status} />
         </div>
         <p className="text-xs text-muted-foreground">{svc?.desc}</p>
       </DialogHeader>
@@ -360,14 +428,7 @@ function ServiceDetail({
             full
           />
           <Field label="Pengangkutan" value={trans?.label ?? "—"} />
-          <Field
-            label="Bayaran"
-            value={
-              b.price != null
-                ? `RM ${b.price.toFixed(2)}${b.paymentStatus ? ` · ${PAYMENT_STATUS_LABEL[b.paymentStatus]}` : ""}`
-                : "—"
-            }
-          />
+          <Field label="Dihantar Pada" value={format(new Date(b.createdAt), "dd MMM yyyy, HH:mm")} />
           <Field
             label="Lokasi"
             value={b.location}
@@ -388,6 +449,9 @@ function ServiceDetail({
           </p>
         </Section>
       )}
+
+      {/* Payment — admin sets the price, everyone else sees it read-only */}
+      <PaymentSection booking={b} onSave={onSavePayment} />
 
       {/* Caregiver assignment */}
       <Section
@@ -450,6 +514,160 @@ function ServiceDetail({
         )}
       </Section>
     </div>
+  );
+}
+
+/** RM formatting used everywhere the price is shown. */
+function formatRM(price?: number | null): string {
+  return price == null ? "Belum ditetapkan" : `RM ${price.toFixed(2)}`;
+}
+
+const PAYMENT_OPTIONS: { value: PaymentStatus; label: string }[] = [
+  { value: "belum_bayar", label: PAYMENT_STATUS_LABEL.belum_bayar },
+  { value: "deposit", label: PAYMENT_STATUS_LABEL.deposit },
+  { value: "telah_bayar", label: PAYMENT_STATUS_LABEL.telah_bayar },
+];
+
+const NO_PAYMENT_STATUS = "none";
+
+function PaymentSection({
+  booking: b,
+  onSave,
+}: {
+  booking: Booking;
+  onSave: (
+    b: Booking,
+    patch: { price: number | null; paymentStatus: PaymentStatus | null; paymentNotes: string },
+  ) => Promise<void>;
+}) {
+  const { user } = useAuth();
+  const canEdit = user?.role === "admin";
+
+  const [price, setPrice] = useState(b.price != null ? String(b.price) : "");
+  const [status, setStatus] = useState<string>(b.paymentStatus ?? NO_PAYMENT_STATUS);
+  const [notes, setNotes] = useState(b.paymentNotes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  // Re-seed when the refreshed booking arrives, or another one is opened.
+  useEffect(() => {
+    setPrice(b.price != null ? String(b.price) : "");
+    setStatus(b.paymentStatus ?? NO_PAYMENT_STATUS);
+    setNotes(b.paymentNotes ?? "");
+  }, [b.id, b.price, b.paymentStatus, b.paymentNotes]);
+
+  const trimmed = price.trim();
+  const parsed = trimmed === "" ? null : Number(trimmed);
+  const priceInvalid = parsed !== null && (!Number.isFinite(parsed) || parsed < 0);
+
+  const save = async () => {
+    if (priceInvalid) {
+      toast.error("Harga mesti nombor yang sah dan tidak negatif.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(b, {
+        price: parsed,
+        paymentStatus: status === NO_PAYMENT_STATUS ? null : (status as PaymentStatus),
+        paymentNotes: notes,
+      });
+      toast.success("Maklumat bayaran dikemas kini");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan bayaran.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Section icon={<CreditCard className="h-3.5 w-3.5" />} title="Bayaran">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 p-3">
+        <span className="font-display text-lg font-bold">{formatRM(b.price)}</span>
+        <span className="rounded-full bg-card px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-border">
+          {b.paymentStatus ? PAYMENT_STATUS_LABEL[b.paymentStatus] : "Belum Ditetapkan"}
+        </span>
+      </div>
+
+      {canEdit ? (
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs" htmlFor="bayaran-harga">
+                Harga (RM)
+              </Label>
+              <Input
+                id="bayaran-harga"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="Cth: 120.00"
+                aria-invalid={priceInvalid || undefined}
+              />
+              {priceInvalid && (
+                <p className="text-[11px] text-destructive">
+                  Masukkan nombor yang sah dan tidak negatif.
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Status Bayaran</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PAYMENT_STATUS}>Belum Ditetapkan</SelectItem>
+                  {PAYMENT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="bayaran-nota">
+              Catatan Bayaran (pilihan)
+            </Label>
+            <Input
+              id="bayaran-nota"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Cth: Deposit RM50 telah diterima"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => void save()} disabled={saving || priceInvalid}>
+              {saving ? "Menyimpan..." : b.price == null ? "Tetapkan Harga" : "Kemas Kini Harga"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Maklumat bayaran kekal walaupun status servis berubah.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {b.paymentNotes && (
+            <p className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+              {b.paymentNotes}
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            Hanya admin boleh menetapkan atau mengubah harga servis.
+          </p>
+        </div>
+      )}
+
+      {canEdit && b.paymentNotes && !notes && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Catatan sedia ada: {b.paymentNotes}
+        </p>
+      )}
+    </Section>
   );
 }
 

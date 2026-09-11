@@ -32,6 +32,7 @@ export type ProfileRow = {
   role: Role;
   status: UserStatus;
   phone: string | null;
+  avatar_url: string | null;
   created_at: string;
 };
 
@@ -57,6 +58,7 @@ export type ParentRow = {
   status_mobiliti: string | null;
   status_kognitif: string | null;
   sekatan_pemakanan: string | null;
+  archived_at: string | null;
   created_at: string;
 };
 
@@ -123,6 +125,7 @@ export type BookingRow = {
   caregiver_id: string | null;
   price: number | null;
   payment_status: PaymentStatus | null;
+  payment_notes: string | null;
 };
 
 export type ArticleRow = {

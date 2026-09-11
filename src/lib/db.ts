@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase/client";
 import type {
   Article,
   Booking,
+  BookingStatus,
   Caregiver,
   Medication,
   Parent,
@@ -32,6 +33,7 @@ const toUser = (r: ProfileRow): User => ({
   role: r.role,
   status: r.status,
   phone: r.phone ?? undefined,
+  avatar: r.avatar_url ?? undefined,
 });
 
 const toParent = (r: ParentRow, anakIds: string[]): Parent => ({
@@ -57,6 +59,7 @@ const toParent = (r: ParentRow, anakIds: string[]): Parent => ({
   statusMobiliti: r.status_mobiliti ?? undefined,
   statusKognitif: r.status_kognitif ?? undefined,
   sekatanPemakanan: r.sekatan_pemakanan ?? undefined,
+  archivedAt: r.archived_at ?? undefined,
 });
 
 const toMedication = (r: MedicationRow): Medication => ({
@@ -116,6 +119,7 @@ const toBooking = (r: BookingRow): Booking => ({
   caregiverId: r.caregiver_id ?? undefined,
   price: r.price ?? undefined,
   paymentStatus: r.payment_status ?? undefined,
+  paymentNotes: r.payment_notes ?? undefined,
 });
 
 const toArticle = (r: ArticleRow): Article => ({
@@ -179,9 +183,23 @@ async function anakIdMap(): Promise<Record<string, string[]>> {
   return map;
 }
 
+/** Active residents only — archived ones are excluded from every list. */
 export async function fetchParents(): Promise<Parent[]> {
   const [{ data, error }, links] = await Promise.all([
-    supabase.from("parents").select("*").order("full_name"),
+    supabase.from("parents").select("*").is("archived_at", null).order("full_name"),
+    anakIdMap(),
+  ]);
+  return unwrap<ParentRow[]>(data, error).map((r) => toParent(r, links[r.id] ?? []));
+}
+
+/** Archived residents, newest archive first. Their history stays intact. */
+export async function fetchArchivedParents(): Promise<Parent[]> {
+  const [{ data, error }, links] = await Promise.all([
+    supabase
+      .from("parents")
+      .select("*")
+      .not("archived_at", "is", null)
+      .order("archived_at", { ascending: false }),
     anakIdMap(),
   ]);
   return unwrap<ParentRow[]>(data, error).map((r) => toParent(r, links[r.id] ?? []));
@@ -278,4 +296,38 @@ export async function fetchVideos(): Promise<Video[]> {
     .select("*")
     .order("created_at", { ascending: false });
   return unwrap<VideoRow[]>(data, error).map(toVideo);
+}
+
+// ---------- dashboard helpers ----------
+/**
+ * Tracker records inside an optional [from, to] window (ISO timestamps).
+ * The date filter is pushed down to the query so the dashboard only pulls the
+ * rows for the selected period.
+ */
+export async function fetchTrackersInRange(
+  from?: string,
+  to?: string,
+): Promise<TrackerRecord[]> {
+  let q = supabase.from("tracker_records").select("*");
+  if (from) q = q.gte("date", from);
+  if (to) q = q.lte("date", to);
+  const { data, error } = await q.order("date", { ascending: false });
+  return unwrap<TrackerRow[]>(data, error).map(toTracker);
+}
+
+/** Booking statuses that still need admin attention. */
+export const OPEN_BOOKING_STATUSES: BookingStatus[] = [
+  "pending",
+  "confirmed",
+  "ongoing",
+];
+
+/** Service requests that are not yet resolved (completed / cancelled). */
+export async function fetchOpenBookings(): Promise<Booking[]> {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("*")
+    .in("status", OPEN_BOOKING_STATUSES)
+    .order("created_at", { ascending: false });
+  return unwrap<BookingRow[]>(data, error).map(toBooking);
 }

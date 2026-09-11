@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -20,27 +21,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useParents, useTrackers, useUsers } from "@/lib/data";
+import { useParents, useTrackersQuery, useUsers } from "@/lib/data";
 import type { TrackerRecord } from "@/lib/mock-data";
+import {
+  TRACKER_CATEGORIES,
+  validateTrackerSearch,
+} from "@/lib/tracker-filters";
+import type { TrackerCategory, TrackerSearch } from "@/lib/tracker-filters";
 import { StatusBadge } from "@/components/status-badge";
-import { VitalCharts } from "@/components/vital-charts";
-import { format } from "date-fns";
-import { Activity, Eye, HeartPulse, Pill, Utensils } from "lucide-react";
+import { endOfDay, format, startOfDay } from "date-fns";
+import { Activity, AlertTriangle, Eye, HeartPulse, Siren } from "lucide-react";
 
 export const Route = createFileRoute("/admin/tracker")({
+  validateSearch: validateTrackerSearch,
   component: TrackerAdmin,
 });
-
-type Category = "all" | "vital" | "ubat" | "makan" | "checklist" | "laporan";
-
-const CATEGORIES: { key: Category; label: string }[] = [
-  { key: "all", label: "Semua kategori" },
-  { key: "vital", label: "Tanda Vital" },
-  { key: "ubat", label: "Ubatan" },
-  { key: "makan", label: "Makanan" },
-  { key: "checklist", label: "Senarai Semak" },
-  { key: "laporan", label: "Laporan Harian" },
-];
 
 const hasVital = (t: TrackerRecord) =>
   (t.vitalEntries?.length ?? 0) > 0 || t.bpSystolic != null;
@@ -51,7 +46,7 @@ const hasMakan = (t: TrackerRecord) =>
 const hasChecklist = (t: TrackerRecord) => (t.checklist?.length ?? 0) > 0;
 const hasLaporan = (t: TrackerRecord) => !!t.aktiviti;
 
-function matchesCategory(t: TrackerRecord, c: Category): boolean {
+function matchesCategory(t: TrackerRecord, c: TrackerCategory): boolean {
   switch (c) {
     case "vital":
       return hasVital(t);
@@ -68,25 +63,51 @@ function matchesCategory(t: TrackerRecord, c: Category): boolean {
   }
 }
 
+/** Latest reading in a record, falling back to the legacy flat columns. */
+function latestVital(t: TrackerRecord) {
+  const v = t.vitalEntries?.[t.vitalEntries.length - 1];
+  return {
+    sys: v?.bpSistolik ?? t.bpSystolic,
+    dia: v?.bpDiastolik ?? t.bpDiastolic,
+    gula: v?.gulaDarah ?? t.bloodSugar,
+  };
+}
+
+const TABLE_COLS = 8;
+
 function TrackerAdmin() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/admin/tracker" });
+
   const parents = useParents();
-  const trackers = useTrackers();
   const users = useUsers();
-  const [pid, setPid] = useState("all");
-  const [sid, setSid] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [category, setCategory] = useState<Category>("all");
+
+  const pid = search.pid ?? "all";
+  const sid = search.sid ?? "all";
+  const category = search.category ?? "all";
+  const from = search.from ?? "";
+  const to = search.to ?? "";
+
+  const setFilter = (patch: Partial<TrackerSearch>) =>
+    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+
+  // The date window is pushed into the query; the rest is filtered client-side.
+  const range = useMemo(
+    () => ({
+      from: from ? startOfDay(new Date(from)).toISOString() : undefined,
+      to: to ? endOfDay(new Date(to)).toISOString() : undefined,
+    }),
+    [from, to],
+  );
+  const trackersQ = useTrackersQuery(range);
 
   const rows = useMemo(() => {
-    return trackers
+    return (trackersQ.data ?? [])
       .filter((t) => pid === "all" || t.parentId === pid)
       .filter((t) => sid === "all" || t.staffId === sid)
-      .filter((t) => !from || t.date.slice(0, 10) >= from)
-      .filter((t) => !to || t.date.slice(0, 10) <= to)
       .filter((t) => matchesCategory(t, category))
       .sort((a, b) => +new Date(b.date) - +new Date(a.date));
-  }, [trackers, pid, sid, from, to, category]);
+  }, [trackersQ.data, pid, sid, category]);
 
   const summary = useMemo(
     () => ({
@@ -98,17 +119,17 @@ function TrackerAdmin() {
     [rows],
   );
 
-  const showCharts =
-    (category === "all" || category === "vital") &&
-    rows.some((t) => (t.vitalEntries?.length ?? 0) > 0);
+  const filtersActive =
+    pid !== "all" || sid !== "all" || category !== "all" || !!from || !!to;
 
-  const resetFilters = () => {
-    setPid("all");
-    setSid("all");
-    setFrom("");
-    setTo("");
-    setCategory("all");
-  };
+  const resetFilters = () => navigate({ search: {}, replace: true });
+
+  const openRecord = (recordId: string) =>
+    navigate({
+      to: "/admin/rekod-harian/$recordId",
+      params: { recordId },
+      search,
+    });
 
   return (
     <div className="space-y-5">
@@ -122,17 +143,29 @@ function TrackerAdmin() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard label="Jumlah Rekod" value={summary.total} tone="muted" />
-        <SummaryCard label="Normal" value={summary.normal} tone="normal" />
+        <SummaryCard
+          label="Jumlah Rekod"
+          value={summary.total}
+          tone="muted"
+          loading={trackersQ.isPending}
+        />
+        <SummaryCard
+          label="Normal"
+          value={summary.normal}
+          tone="normal"
+          loading={trackersQ.isPending}
+        />
         <SummaryCard
           label="Perlu Perhatian"
           value={summary.attention}
           tone="attention"
+          loading={trackersQ.isPending}
         />
         <SummaryCard
           label="Kritikal"
           value={summary.critical}
           tone="critical"
+          loading={trackersQ.isPending}
         />
       </div>
 
@@ -141,7 +174,10 @@ function TrackerAdmin() {
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Warga Emas</Label>
-            <Select value={pid} onValueChange={setPid}>
+            <Select
+              value={pid}
+              onValueChange={(v) => setFilter({ pid: v === "all" ? undefined : v })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Warga emas" />
               </SelectTrigger>
@@ -157,7 +193,10 @@ function TrackerAdmin() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Caregiver / Staf</Label>
-            <Select value={sid} onValueChange={setSid}>
+            <Select
+              value={sid}
+              onValueChange={(v) => setFilter({ sid: v === "all" ? undefined : v })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Staf" />
               </SelectTrigger>
@@ -177,13 +216,17 @@ function TrackerAdmin() {
             <Label className="text-xs">Kategori Data</Label>
             <Select
               value={category}
-              onValueChange={(v) => setCategory(v as Category)}
+              onValueChange={(v) =>
+                setFilter({
+                  category: v === "all" ? undefined : (v as TrackerCategory),
+                })
+              }
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((c) => (
+                {TRACKER_CATEGORIES.map((c) => (
                   <SelectItem key={c.key} value={c.key}>
                     {c.label}
                   </SelectItem>
@@ -192,116 +235,174 @@ function TrackerAdmin() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Dari Tarikh</Label>
+            <Label className="text-xs" htmlFor="rekod-dari">
+              Dari Tarikh
+            </Label>
             <Input
+              id="rekod-dari"
               type="date"
               value={from}
-              onChange={(e) => setFrom(e.target.value)}
+              max={to || undefined}
+              onChange={(e) => setFilter({ from: e.target.value || undefined })}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Hingga Tarikh</Label>
+            <Label className="text-xs" htmlFor="rekod-hingga">
+              Hingga Tarikh
+            </Label>
             <Input
+              id="rekod-hingga"
               type="date"
               value={to}
-              onChange={(e) => setTo(e.target.value)}
+              min={from || undefined}
+              onChange={(e) => setFilter({ to: e.target.value || undefined })}
             />
           </div>
           <div className="flex items-end">
-            <Button variant="ghost" className="w-full" onClick={resetFilters}>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={resetFilters}
+              disabled={!filtersActive}
+            >
               Set Semula Penapis
             </Button>
           </div>
         </div>
       </Card>
 
-      {/* Charts */}
-      {showCharts && (
-        <div>
-          <h2 className="mb-2 font-display text-lg font-bold">
-            Graf Tanda Vital
-          </h2>
-          <p className="mb-2 text-xs text-muted-foreground">
-            Ringkasan bacaan tanda vital bagi rekod yang ditapis.
-          </p>
-          <VitalCharts records={rows} />
-        </div>
-      )}
-
       {/* Records table (view only) */}
       <Card className="overflow-hidden border-border/60 p-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Tarikh</TableHead>
-              <TableHead>Warga Emas</TableHead>
-              <TableHead>Staf</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Kandungan</TableHead>
-              <TableHead>TD</TableHead>
-              <TableHead>Gula</TableHead>
-              <TableHead className="text-right">Tindakan</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  Tiada rekod sepadan dengan penapis.
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Tarikh</TableHead>
+                <TableHead>Warga Emas</TableHead>
+                <TableHead>Staf</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Kandungan</TableHead>
+                <TableHead>TD</TableHead>
+                <TableHead>Gula</TableHead>
+                <TableHead className="text-right">Tindakan</TableHead>
               </TableRow>
-            )}
-            {rows.map((t) => {
-              const p = parents.find((x) => x.id === t.parentId);
-              const s = users.find((x) => x.id === t.staffId);
-              return (
-                <TableRow key={t.id}>
-                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {format(new Date(t.date), "dd MMM yyyy, HH:mm")}
-                  </TableCell>
-                  <TableCell className="font-medium">{p?.fullName}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {s?.name}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={t.status} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {hasVital(t) && <DataBadge label="Vital" />}
-                      {hasUbat(t) && <DataBadge label="Ubat" />}
-                      {hasMakan(t) && <DataBadge label="Makan" />}
-                      {hasChecklist(t) && <DataBadge label="Checklist" />}
-                      {hasLaporan(t) && <DataBadge label="Laporan" />}
-                      {(t.gambar?.length ?? 0) > 0 && (
-                        <DataBadge label={`${t.gambar!.length} Foto`} />
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {t.bpSystolic ? `${t.bpSystolic}/${t.bpDiastolic}` : "—"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {t.bloodSugar ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild size="sm" variant="ghost">
-                      <Link
-                        to="/admin/rekod-harian/$recordId"
-                        params={{ recordId: t.id }}
-                      >
-                        <Eye className="mr-1 h-3.5 w-3.5" /> Lihat
-                      </Link>
+            </TableHeader>
+            <TableBody>
+              {trackersQ.isPending &&
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={`s${i}`} className="hover:bg-transparent">
+                    <TableCell colSpan={TABLE_COLS}>
+                      <Skeleton className="h-9 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+              {trackersQ.isError && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={TABLE_COLS} className="py-10 text-center">
+                    <p className="text-sm font-medium">Gagal memuatkan rekod</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {(trackersQ.error as Error).message}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3"
+                      onClick={() => void trackersQ.refetch()}
+                    >
+                      Cuba lagi
                     </Button>
                   </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              )}
+
+              {!trackersQ.isPending && !trackersQ.isError && rows.length === 0 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={TABLE_COLS} className="py-10 text-center">
+                    <p className="text-sm font-medium">
+                      {filtersActive ? "Tiada rekod sepadan" : "Tiada rekod lagi"}
+                    </p>
+                    <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                      {filtersActive
+                        ? "Cuba longgarkan penapis atau pilih julat tarikh yang lain."
+                        : "Rekod penjagaan harian akan dipaparkan di sini sebaik sahaja staf menghantarnya."}
+                    </p>
+                    {filtersActive && (
+                      <Button size="sm" variant="outline" className="mt-3" onClick={resetFilters}>
+                        Set Semula Penapis
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {rows.map((t) => {
+                const p = parents.find((x) => x.id === t.parentId);
+                const s = users.find((x) => x.id === t.staffId);
+                const { sys, dia, gula } = latestVital(t);
+                const who = p?.fullName ?? "Warga emas tidak dikenali";
+                return (
+                  <TableRow
+                    key={t.id}
+                    tabIndex={0}
+                    aria-label={`Lihat rekod ${who} pada ${format(new Date(t.date), "dd MMM yyyy, HH:mm")}`}
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                    onClick={(e) => {
+                      // Let buttons / links / inputs inside the row act normally.
+                      if ((e.target as HTMLElement).closest("a,button,input,[role='checkbox']")) {
+                        return;
+                      }
+                      openRecord(t.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openRecord(t.id);
+                      }
+                    }}
+                  >
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {format(new Date(t.date), "dd MMM yyyy, HH:mm")}
+                    </TableCell>
+                    <TableCell className="font-medium">{p?.fullName ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{s?.name ?? "—"}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={t.status} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {hasVital(t) && <DataBadge label="Vital" />}
+                        {hasUbat(t) && <DataBadge label="Ubat" />}
+                        {hasMakan(t) && <DataBadge label="Makan" />}
+                        {hasChecklist(t) && <DataBadge label="Checklist" />}
+                        {hasLaporan(t) && <DataBadge label="Laporan" />}
+                        {(t.gambar?.length ?? 0) > 0 && (
+                          <DataBadge label={`${t.gambar!.length} Foto`} />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {sys != null || dia != null ? `${sys ?? "—"}/${dia ?? "—"}` : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">{gula ?? "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild size="sm" variant="ghost">
+                        <Link
+                          to="/admin/rekod-harian/$recordId"
+                          params={{ recordId: t.id }}
+                          search={search}
+                        >
+                          <Eye className="mr-1 h-3.5 w-3.5" /> Lihat
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
     </div>
   );
@@ -317,30 +418,34 @@ const TONE_CLS: Record<string, string> = {
 const TONE_ICON: Record<string, React.ReactNode> = {
   muted: <Activity className="h-4 w-4 text-muted-foreground" />,
   normal: <HeartPulse className="h-4 w-4 text-status-normal" />,
-  attention: <Pill className="h-4 w-4 text-status-attention" />,
-  critical: <Utensils className="h-4 w-4 text-status-critical" />,
+  attention: <AlertTriangle className="h-4 w-4 text-status-attention" />,
+  critical: <Siren className="h-4 w-4 text-status-critical" />,
 };
 
 function SummaryCard({
   label,
   value,
   tone,
+  loading,
 }: {
   label: string;
   value: number;
   tone: "muted" | "normal" | "attention" | "critical";
+  loading?: boolean;
 }) {
   return (
     <Card className="border-border/60 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
         {TONE_ICON[tone]}
       </div>
-      <p className={`mt-2 font-display text-2xl font-bold ${TONE_CLS[tone]}`}>
-        {value}
-      </p>
+      {loading ? (
+        <Skeleton className="mt-2 h-8 w-12" />
+      ) : (
+        <p className={`mt-2 font-display text-2xl font-bold ${TONE_CLS[tone]}`}>{value}</p>
+      )}
     </Card>
   );
 }

@@ -24,7 +24,7 @@ export default defineConfig({
     // 8080 is busy instead of silently drifting to 8081/8082. Has no effect on
     // the static `vite build` output used for GitHub Pages.
     server: {
-      port: 8080,
+      port: 8081,
       strictPort: true,
     },
   },

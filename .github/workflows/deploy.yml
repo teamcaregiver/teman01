@@ -29,14 +29,35 @@ jobs:
 
       - run: npm ci
 
+      # Fail fast with a readable message. Without this, an unset value is
+      # substituted as an empty string and the build dies ~2 minutes later
+      # inside the prerender with a 500 that hides the real cause.
+      - name: Check required build config is set
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          missing=0
+          for v in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!v}" ]; then
+              echo "::error::$v is not set as an Actions variable or secret."
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "Add them under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          echo "Both build values are present."
+
       # `npm run build` also fires the `postbuild` script, which promotes the
       # SPA shell to index.html and writes 404.html + .nojekyll.
       # The Supabase vars are required at BUILD time: src/lib/supabase/client.ts
       # throws if they are missing, and the SPA-shell prerender executes it.
       - run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - uses: actions/configure-pages@v5
 

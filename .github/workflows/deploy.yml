@@ -5,19 +5,19 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Least-privilege token needed by the official Pages deploy actions.
+# Only needs to push the built site to the gh-pages branch.
+# No `pages:`/`id-token:` and no `environment:` block — those are for the
+# artifact-based deploy, and they are what triggered the
+# "Branch main is not allowed to deploy to github-pages" protection rule.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Never run two deploys at once; let an in-flight one finish.
 concurrency:
-  group: pages
+  group: gh-pages-deploy
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,26 +51,31 @@ jobs:
           echo "Both build values are present."
 
       # `npm run build` also fires the `postbuild` script, which promotes the
-      # SPA shell to index.html and writes 404.html + .nojekyll.
-      # The Supabase vars are required at BUILD time: src/lib/supabase/client.ts
+      # SPA shell to index.html and writes 404.html + .nojekyll (required on a
+      # branch deploy, or Jekyll would drop the underscore-prefixed files).
+      # The Supabase vars are needed at BUILD time: src/lib/supabase/client.ts
       # throws if they are missing, and the SPA-shell prerender executes it.
       - run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist/client
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # Publish dist/client to gh-pages with plain git and the built-in token —
+      # same end result as the `gh-pages` npm package, no third-party action.
+      # A fresh repo + force push keeps the branch to a single commit, which is
+      # why gh-pages has no shared history with main (and can't be PR'd into).
+      - name: Publish dist/client to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test -f dist/client/index.html || { echo "::error::dist/client/index.html missing"; exit 1; }
+          cd dist/client
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA} from ${GITHUB_REF_NAME}"
+          git push -q --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            gh-pages
+          echo "Published $(git ls-files | wc -l) files to gh-pages."

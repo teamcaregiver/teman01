@@ -17,6 +17,7 @@ import type {
   VitalStatus,
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { useActivityPhotoUrls } from "@/lib/data";
 import {
   Thermometer,
   HeartPulse,
@@ -385,12 +386,14 @@ function MakanTable({
 
 function AktivitiTable({
   record,
+  photos,
   showPengesahan,
 }: {
   record: TrackerRecord;
+  /** Displayable links, already resolved from record.gambar. */
+  photos: string[];
   showPengesahan: boolean;
 }) {
-  const photos = record.gambar ?? [];
   const columns = showPengesahan
     ? ["Waktu", "Aktiviti", "Gambar", "Pengesahan"]
     : ["Waktu", "Aktiviti", "Gambar"];
@@ -495,11 +498,13 @@ export function RecordReport({
   // site the logged-in staff is the one confirming, so it's hidden there.
   showPengesahan?: boolean;
 }) {
+  const photos = useActivityPhotoUrls(record.gambar);
   const hasStructured =
     record.vitalEntries?.length ||
     record.ubatanEntries?.length ||
     record.makananEntries?.length ||
-    record.aktiviti;
+    record.aktiviti ||
+    record.gambar?.length;
 
   if (!hasStructured) {
     // Legacy basic record fallback — each vital sign shows its own status.
@@ -727,20 +732,23 @@ export function RecordReport({
           </Section>
         )}
 
-      {/* Activity + photos — desktop table; mobile keeps text + photo grid */}
-      {record.aktiviti && (
+      {/* Activity + photos — desktop table; mobile keeps text + photo grid.
+          A report may be photos only. */}
+      {(record.aktiviti || photos.length > 0) && (
         <Section
           icon={<ActivityIcon className="h-3.5 w-3.5" />}
           title="Laporan Aktiviti"
         >
           {/* Mobile: text + photos */}
           <div className="space-y-2 sm:hidden">
-            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-              {record.aktiviti}
-            </p>
-            {record.gambar && record.gambar.length > 0 && (
+            {record.aktiviti && (
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                {record.aktiviti}
+              </p>
+            )}
+            {photos.length > 0 && (
               <div className="grid grid-cols-3 gap-2">
-                {record.gambar.map((g, i) => (
+                {photos.map((g, i) => (
                   <img
                     key={i}
                     src={g}
@@ -759,7 +767,11 @@ export function RecordReport({
 
           {/* Desktop: table view */}
           <div className="hidden sm:block">
-            <AktivitiTable record={record} showPengesahan={showPengesahan} />
+            <AktivitiTable
+              record={record}
+              photos={photos}
+              showPengesahan={showPengesahan}
+            />
           </div>
         </Section>
       )}

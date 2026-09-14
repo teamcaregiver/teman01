@@ -1,6 +1,6 @@
 import { entryTime } from "@/lib/mock-data";
 import type { TrackerRecord } from "@/lib/mock-data";
-import { useParents, useUsers } from "@/lib/data";
+import { useActivityPhotoUrls, useParents, useUsers } from "@/lib/data";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,7 @@ export function RecordDetail({ record }: { record: TrackerRecord }) {
   const users = useUsers();
   const p = parents.find((x) => x.id === record.parentId);
   const s = users.find((x) => x.id === record.staffId);
+  const photos = useActivityPhotoUrls(record.gambar);
 
   return (
     <div className="space-y-5 pb-2">
@@ -237,22 +238,24 @@ export function RecordDetail({ record }: { record: TrackerRecord }) {
           </Section>
         )}
 
-      {/* Aktiviti + gambar */}
-      {record.aktiviti && (
+      {/* Aktiviti + gambar (a report may be photos only) */}
+      {(record.aktiviti || photos.length > 0) && (
         <Section title="Laporan Aktiviti Harian">
-          <p className="whitespace-pre-wrap text-sm">{record.aktiviti}</p>
+          {record.aktiviti && (
+            <p className="whitespace-pre-wrap text-sm">{record.aktiviti}</p>
+          )}
           {record.aktivitiPengesahan && (
             <p className="mt-1 text-[11px] text-status-normal">
               ✓ Disahkan oleh {record.aktivitiPengesahan}
             </p>
           )}
-          {record.gambar && record.gambar.length > 0 && (
+          {photos.length > 0 && (
             <div className="mt-3">
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">
                 Gambar dimuat naik
               </p>
               <div className="grid grid-cols-3 gap-2">
-                {record.gambar.map((g, i) => (
+                {photos.map((g, i) => (
                   <a
                     key={i}
                     href={g}

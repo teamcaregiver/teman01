@@ -471,7 +471,7 @@ One record per (elderly, staff, day). Holds all care logged that day.
 | makananEntries[] | Food/drink intake events (see below) |
 | aktiviti | Daily activity report text |
 | aktivitiPengesahan | Staff who confirmed the report |
-| gambar[] | Activity photo references (→ Supabase Storage in production) |
+| gambar[] | Activity photos — paths in the private `activity-photos` bucket, shown via short-lived signed links; only admin, the assigned staff and linked anak can open them |
 | checklist[] | The 8-item daily checklist (`{id, label, done}`) |
 | catatanKhas | Special notes |
 | editedByAdmin / editedAt | Edit audit (optional) |

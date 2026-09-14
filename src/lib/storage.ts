@@ -86,6 +86,84 @@ export function isValidImageUrl(value: string): boolean {
   }
 }
 
+// ---------- activity photos (private) ----------
+// Photos of residents live in the PRIVATE `activity-photos` bucket
+// (migrations/0010_activity_photos_storage.sql). tracker_records.gambar keeps
+// the object paths; screens turn them into short-lived signed links.
+const ACTIVITY_BUCKET = "activity-photos";
+
+/** How long a signed photo link stays valid, in seconds. */
+export const ACTIVITY_PHOTO_URL_TTL = 60 * 60;
+
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+/** True for a stored object path; false for links such as https: or blob:. */
+export function isActivityPhotoPath(value: string): boolean {
+  return !/^[a-z][a-z0-9+.-]*:/i.test(value);
+}
+
+/**
+ * Upload photos into the resident's folder. Storage RLS only accepts the
+ * resident's assigned staff (or an admin), so the folder is not optional.
+ * Resolves to the object paths to save; if any upload fails, the ones that
+ * succeeded are removed again and the error is rethrown.
+ */
+export async function uploadActivityPhotos(parentId: string, files: File[]): Promise<string[]> {
+  const results = await Promise.allSettled(
+    files.map(async (file) => {
+      const reason = validateImageFile(file);
+      if (reason) throw new Error(reason);
+
+      // validateImageFile passed on the MIME type or the extension, so one
+      // of the two gives a type the bucket accepts.
+      const nameExt = file.name.split(".").pop()?.toLowerCase() ?? "";
+      const type = (IMAGE_MIME_TYPES as readonly string[]).includes(file.type)
+        ? file.type
+        : MIME_BY_EXT[nameExt];
+      const path = `${parentId}/${crypto.randomUUID()}.${type.split("/")[1]}`;
+
+      const { error } = await supabase.storage
+        .from(ACTIVITY_BUCKET)
+        .upload(path, file, { contentType: type });
+      if (error) throw new Error(error.message);
+      return path;
+    }),
+  );
+
+  const paths = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+  if (failed) {
+    await removeActivityPhotos(paths);
+    throw failed.reason instanceof Error ? failed.reason : new Error("Muat naik gambar gagal");
+  }
+  return paths;
+}
+
+/** Best-effort delete, used to clean up after a failed save. */
+export async function removeActivityPhotos(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+  await supabase.storage.from(ACTIVITY_BUCKET).remove(paths);
+}
+
+/** Signed links for object paths, keyed by path. Paths the caller may not read are left out. */
+export async function signActivityPhotos(paths: string[]): Promise<Record<string, string>> {
+  const { data, error } = await supabase.storage
+    .from(ACTIVITY_BUCKET)
+    .createSignedUrls(paths, ACTIVITY_PHOTO_URL_TTL);
+  if (error) throw new Error(error.message);
+
+  const urls: Record<string, string> = {};
+  for (const item of data) {
+    if (item.path && item.signedUrl && !item.error) urls[item.path] = item.signedUrl;
+  }
+  return urls;
+}
+
 // ---------- profile avatars ----------
 const AVATAR_BUCKET = "avatars";
 

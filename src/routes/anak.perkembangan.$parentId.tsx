@@ -8,7 +8,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useParents, useTrackers, useInvalidate, qk } from "@/lib/data";
+import {
+  useActivityPhotoUrls,
+  useParents,
+  useTrackers,
+  useInvalidate,
+  qk,
+} from "@/lib/data";
 import type { TrackerRecord } from "@/lib/mock-data";
 import { VitalCharts } from "@/components/vital-charts";
 import { RecordReport } from "@/components/record-report";
@@ -198,25 +204,31 @@ function Perkembangan() {
           )}
 
           {/* Photo gallery for the selected date */}
-          {dayPhotos.length > 0 && (
-            <div>
-              <h2 className="mb-2 flex items-center gap-1.5 font-display text-lg font-bold">
-                <ImageIcon className="h-4 w-4" /> Galeri Aktiviti
-              </h2>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {dayPhotos.map((g, i) => (
-                  <img
-                    key={i}
-                    src={g}
-                    alt={`Aktiviti ${i + 1}`}
-                    className="aspect-square rounded-xl object-cover"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          <ActivityGallery photos={dayPhotos} />
         </>
       )}
+    </div>
+  );
+}
+
+function ActivityGallery({ photos: stored }: { photos: string[] }) {
+  const photos = useActivityPhotoUrls(stored);
+  if (photos.length === 0) return null;
+  return (
+    <div>
+      <h2 className="mb-2 flex items-center gap-1.5 font-display text-lg font-bold">
+        <ImageIcon className="h-4 w-4" /> Galeri Aktiviti
+      </h2>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        {photos.map((g, i) => (
+          <img
+            key={i}
+            src={g}
+            alt={`Aktiviti ${i + 1}`}
+            className="aspect-square rounded-xl object-cover"
+          />
+        ))}
+      </div>
     </div>
   );
 }

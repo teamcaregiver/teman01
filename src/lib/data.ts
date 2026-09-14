@@ -6,8 +6,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Caregiver, ServiceTypeOption } from "@/lib/mock-data";
 import * as db from "@/lib/db";
+import {
+  ACTIVITY_PHOTO_URL_TTL,
+  isActivityPhotoPath,
+  isValidImageUrl,
+  signActivityPhotos,
+} from "@/lib/storage";
 
 const STALE = 30_000;
+
+// Re-sign photo links 5 minutes before they expire.
+const PHOTO_URL_REFRESH = (ACTIVITY_PHOTO_URL_TTL - 5 * 60) * 1000;
 
 export const qk = {
   users: ["users"] as const,
@@ -121,6 +130,28 @@ export function useGetServiceType() {
   const serviceTypes = useServiceTypes();
   return (id?: string): ServiceTypeOption | undefined =>
     id ? serviceTypes.find((s) => s.id === id) : undefined;
+}
+
+/**
+ * Displayable links for tracker_records.gambar, in their original order.
+ * Stored object paths are signed on demand and re-signed before they expire;
+ * older rows may hold plain https links, which are used as-is. Anything else
+ * (e.g. a dead blob: link) is skipped.
+ */
+export function useActivityPhotoUrls(values: string[] | undefined): string[] {
+  const list = values ?? [];
+  const paths = list.filter(isActivityPhotoPath);
+  const { data: signed } = useQuery({
+    queryKey: ["activityPhotoUrls", ...paths],
+    queryFn: () => signActivityPhotos(paths),
+    enabled: paths.length > 0,
+    staleTime: PHOTO_URL_REFRESH,
+    refetchInterval: PHOTO_URL_REFRESH,
+  });
+  return list.flatMap((v) => {
+    if (isActivityPhotoPath(v)) return signed?.[v] ? [signed[v]] : [];
+    return isValidImageUrl(v) ? [v] : [];
+  });
 }
 
 /** Invalidate one or more caches after a mutation. */

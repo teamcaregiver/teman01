@@ -1,0 +1,1 @@
+var e=[`Suami`,`Isteri`,`Anak`,`Datuk`,`Nenek`,`Keluarga`,`Kenalan`],t=`Lain-lain`;function n(n){let r=n?.trim()??``;return r?e.includes(r)?{option:r,other:``}:{option:t,other:r}:{option:``,other:``}}function r(e,t){return e===`Lain-lain`?t.trim():e}export{n as i,t as n,r,e as t};

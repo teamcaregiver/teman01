@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { BookingStatusPill } from "@/components/booking-status-pill";
 import {
   useArticles,
+  useGetServiceType,
   useOpenBookingsQuery,
   useParentsQuery,
   useTrackersQuery,
@@ -19,7 +20,6 @@ import {
   useVideos,
 } from "@/lib/data";
 import type { DateRange } from "@/lib/data";
-import { SERVICE_TYPES } from "@/lib/mock-data";
 import type { Parent, TrackerRecord } from "@/lib/mock-data";
 import {
   Activity,
@@ -114,6 +114,7 @@ function AdminHome() {
   const articles = useArticles();
   const videos = useVideos();
   const users = useUsers();
+  const getServiceType = useGetServiceType();
 
   const [filter, setFilter] = useState<FilterKey>("week");
   const [customFrom, setCustomFrom] = useState("");
@@ -359,22 +360,22 @@ function AdminHome() {
               {newestRequests.map((b) => {
                 const p = b.parentId ? parentById[b.parentId] : undefined;
                 const anak = users.find((u) => u.id === b.anakId);
-                const svc = SERVICE_TYPES.find((s) => s.key === b.serviceType);
+                const svc = getServiceType(b.serviceTypeId);
                 const who = p?.fullName ?? anak?.name ?? "Tanpa nama";
                 return (
                   <Link
                     key={b.id}
                     to="/admin/servis"
                     aria-label={`Buka Servis Monitoring untuk permintaan ${
-                      svc?.label ?? b.serviceType
+                      svc?.name ?? "servis"
                     } — ${who}`}
                     className="-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{who}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {svc?.label ?? b.serviceType}
-                        {b.date && ` · ${format(new Date(b.date), "dd MMM yyyy")}`}
+                        {svc?.name ?? "Servis"}
+                        {b.date &&` · ${format(new Date(b.date), "dd MMM yyyy")}`}
                       </p>
                     </div>
                     <BookingStatusPill status={b.status} />

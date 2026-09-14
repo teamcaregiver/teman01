@@ -1,14 +1,21 @@
-// Shared content taxonomy (topics + subtopics) for Artikel & Video, now backed
-// by the `topics` / `subtopics` tables (supabase/migrations/0003_taxonomy.sql)
-// instead of in-memory state — so admin additions persist. Reads are cached by
-// React Query under TAXONOMY_QK; writes are admin-only at the RLS layer.
+// Shared content taxonomy (topics + subtopics) for Artikel & Video, backed by
+// the `topics` / `subtopics` tables (supabase/migrations/0003_taxonomy.sql).
+// Articles and videos reference these rows by id (topic_id / subtopic_id,
+// migration 0009). Reads are cached by React Query under TAXONOMY_QK; writes
+// are admin-only at the RLS layer.
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import type { TopicRow, SubtopicRow } from "@/lib/supabase/types";
 
+export interface TaxonomyItem {
+  id: string;
+  name: string;
+}
+
 export interface Taxonomy {
-  topics: string[];
-  subtopics: Record<string, string[]>;
+  topics: TaxonomyItem[];
+  /** Subtopics keyed by their topic's id. */
+  subtopics: Record<string, TaxonomyItem[]>;
 }
 
 export const TAXONOMY_QK = ["taxonomy"] as const;
@@ -26,14 +33,12 @@ async function fetchTaxonomy(): Promise<Taxonomy> {
   const topicRows = (topicsRes.data ?? []) as TopicRow[];
   const subRows = (subsRes.data ?? []) as SubtopicRow[];
 
-  const nameById = new Map(topicRows.map((t) => [t.id, t.name]));
-  const subtopics: Record<string, string[]> = {};
-  for (const t of topicRows) subtopics[t.name] = [];
+  const subtopics: Record<string, TaxonomyItem[]> = {};
+  for (const t of topicRows) subtopics[t.id] = [];
   for (const s of subRows) {
-    const topicName = nameById.get(s.topic_id);
-    if (topicName) (subtopics[topicName] ??= []).push(s.name);
+    subtopics[s.topic_id]?.push({ id: s.id, name: s.name });
   }
-  return { topics: topicRows.map((t) => t.name), subtopics };
+  return { topics: topicRows.map((t) => ({ id: t.id, name: t.name })), subtopics };
 }
 
 export function useTaxonomy(): Taxonomy {
@@ -44,40 +49,50 @@ export function useTaxonomy(): Taxonomy {
 }
 
 // Postgres unique-violation — the name already exists, which we treat as a no-op
-// (caller just selects the existing value) rather than an error.
+// (caller just selects the existing row) rather than an error.
 const UNIQUE_VIOLATION = "23505";
 
-/** Inserts a new topic. Returns true if created, false if it already existed. */
-export async function addTopic(name: string): Promise<boolean> {
+/**
+ * Inserts a new topic. Resolves to the topic's id — the existing one when the
+ * name is already taken — and whether it was newly created.
+ */
+export async function addTopic(name: string): Promise<{ id: string; created: boolean } | null> {
   const t = name.trim();
-  if (!t) return false;
-  const { error } = await supabase.from("topics").insert({ name: t });
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION) return false;
-    throw new Error(error.message);
-  }
-  return true;
-}
+  if (!t) return null;
+  const { data, error } = await supabase.from("topics").insert({ name: t }).select("id").single();
+  if (!error) return { id: data.id, created: true };
+  if (error.code !== UNIQUE_VIOLATION) throw new Error(error.message);
 
-/** Inserts a subtopic under an existing topic (by name). Returns true if created. */
-export async function addSubtopic(topicName: string, name: string): Promise<boolean> {
-  const s = name.trim();
-  if (!topicName || !s) return false;
-
-  const { data: topic, error: lookupErr } = await supabase
+  const { data: existing, error: lookupErr } = await supabase
     .from("topics")
     .select("id")
-    .eq("name", topicName)
-    .maybeSingle();
+    .eq("name", t)
+    .single();
   if (lookupErr) throw new Error(lookupErr.message);
-  if (!topic) return false;
+  return { id: existing.id, created: false };
+}
 
-  const { error } = await supabase
+/** Inserts a subtopic under a topic. Same return contract as addTopic. */
+export async function addSubtopic(
+  topicId: string,
+  name: string,
+): Promise<{ id: string; created: boolean } | null> {
+  const s = name.trim();
+  if (!topicId || !s) return null;
+  const { data, error } = await supabase
     .from("subtopics")
-    .insert({ topic_id: topic.id, name: s });
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION) return false;
-    throw new Error(error.message);
-  }
-  return true;
+    .insert({ topic_id: topicId, name: s })
+    .select("id")
+    .single();
+  if (!error) return { id: data.id, created: true };
+  if (error.code !== UNIQUE_VIOLATION) throw new Error(error.message);
+
+  const { data: existing, error: lookupErr } = await supabase
+    .from("subtopics")
+    .select("id")
+    .eq("topic_id", topicId)
+    .eq("name", s)
+    .single();
+  if (lookupErr) throw new Error(lookupErr.message);
+  return { id: existing.id, created: false };
 }

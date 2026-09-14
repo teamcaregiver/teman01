@@ -195,9 +195,11 @@ function RekodPenjagaan() {
                 </Avatar>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">{cg.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {cg.specialization}
-                  </p>
+                  {cg.specialization && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {cg.specialization}
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

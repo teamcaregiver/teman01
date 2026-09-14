@@ -10,6 +10,7 @@ import type {
   Caregiver,
   Medication,
   Parent,
+  ServiceTypeOption,
   TrackerRecord,
   User,
   Video,
@@ -21,9 +22,21 @@ import type {
   MedicationRow,
   ParentRow,
   ProfileRow,
+  ServiceTypeRow,
   TrackerRow,
   VideoRow,
 } from "@/lib/supabase/types";
+
+/** Topic/subtopic names embedded next to the foreign keys (migration 0009). */
+type TaxonomyNames = {
+  topic: { name: string } | null;
+  subtopic: { name: string } | null;
+};
+
+const ARTICLE_SELECT =
+  "*, topic:topics!articles_topic_id_fkey(name), subtopic:subtopics!articles_subtopic_fkey(name)";
+const VIDEO_SELECT =
+  "*, topic:topics!videos_topic_id_fkey(name), subtopic:subtopics!videos_subtopic_fkey(name)";
 
 // ---------- mappers (snake_case row -> camelCase UI shape) ----------
 const toUser = (r: ProfileRow): User => ({
@@ -78,11 +91,19 @@ const toCaregiver = (r: CaregiverRow): Caregiver => ({
   id: r.id,
   name: r.name,
   phone: r.phone ?? "",
-  avatar: r.avatar ?? undefined,
-  specialization: r.specialization ?? "",
-  experienceYears: r.experience_years ?? 0,
-  rating: r.rating ?? 0,
+  avatar: r.avatar_url ?? undefined,
+  status: r.status,
+  specialization: r.specialization ?? undefined,
+  experienceYears: r.experience_years ?? undefined,
+  rating: r.rating ?? undefined,
   notes: r.notes ?? undefined,
+});
+
+const toServiceType = (r: ServiceTypeRow): ServiceTypeOption => ({
+  id: r.id,
+  code: r.code,
+  name: r.name,
+  description: r.description ?? "",
 });
 
 const toTracker = (r: TrackerRow): TrackerRecord => ({
@@ -108,7 +129,7 @@ const toBooking = (r: BookingRow): Booking => ({
   id: r.id,
   anakId: r.anak_id,
   parentId: r.parent_id ?? undefined,
-  serviceType: r.service_type,
+  serviceTypeId: r.service_type_id,
   date: r.date ?? "",
   time: r.time ?? "",
   transport: r.transport ?? "sendiri",
@@ -122,11 +143,13 @@ const toBooking = (r: BookingRow): Booking => ({
   paymentNotes: r.payment_notes ?? undefined,
 });
 
-const toArticle = (r: ArticleRow): Article => ({
+const toArticle = (r: ArticleRow & TaxonomyNames): Article => ({
   id: r.id,
   title: r.title,
-  topic: r.topic ?? "",
-  subtopic: r.subtopic ?? "",
+  topicId: r.topic_id ?? undefined,
+  subtopicId: r.subtopic_id ?? undefined,
+  topic: r.topic?.name ?? "",
+  subtopic: r.subtopic?.name ?? "",
   coverImage: r.cover_image ?? "",
   body: r.body ?? "",
   pdfUrl: r.pdf_url ?? undefined,
@@ -137,11 +160,13 @@ const toArticle = (r: ArticleRow): Article => ({
   createdAt: r.created_at,
 });
 
-const toVideo = (r: VideoRow): Video => ({
+const toVideo = (r: VideoRow & TaxonomyNames): Video => ({
   id: r.id,
   title: r.title,
-  topic: r.topic ?? "",
-  subtopic: r.subtopic ?? "",
+  topicId: r.topic_id ?? undefined,
+  subtopicId: r.subtopic_id ?? undefined,
+  topic: r.topic?.name ?? "",
+  subtopic: r.subtopic?.name ?? "",
   url: r.url ?? "",
   description: r.description ?? "",
   pdfUrl: r.pdf_url ?? undefined,
@@ -228,10 +253,21 @@ export async function fetchMedicationsForParent(parentId: string): Promise<Medic
   return unwrap<MedicationRow[]>(data, error).map(toMedication);
 }
 
-// ---------- caregivers ----------
+// ---------- caregivers (staff accounts) ----------
+/**
+ * Staff accounts as caregiver cards. Goes through the list_caregivers() RPC
+ * because profiles RLS hides other users: admins get every staff account,
+ * anak only the staff assigned to their own bookings.
+ */
 export async function fetchCaregivers(): Promise<Caregiver[]> {
-  const { data, error } = await supabase.from("caregivers").select("*").order("name");
+  const { data, error } = await supabase.rpc("list_caregivers");
   return unwrap<CaregiverRow[]>(data, error).map(toCaregiver);
+}
+
+// ---------- service types ----------
+export async function fetchServiceTypes(): Promise<ServiceTypeOption[]> {
+  const { data, error } = await supabase.from("service_types").select("*").order("name");
+  return unwrap<ServiceTypeRow[]>(data, error).map(toServiceType);
 }
 
 // ---------- tracker records ----------
@@ -275,27 +311,27 @@ export async function fetchBookings(): Promise<Booking[]> {
 export async function fetchArticles(): Promise<Article[]> {
   const { data, error } = await supabase
     .from("articles")
-    .select("*")
+    .select(ARTICLE_SELECT)
     .order("created_at", { ascending: false });
-  return unwrap<ArticleRow[]>(data, error).map(toArticle);
+  return unwrap<(ArticleRow & TaxonomyNames)[]>(data, error).map(toArticle);
 }
 
 export async function fetchArticleById(id: string): Promise<Article | null> {
   const { data, error } = await supabase
     .from("articles")
-    .select("*")
+    .select(ARTICLE_SELECT)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data ? toArticle(data as ArticleRow) : null;
+  return data ? toArticle(data) : null;
 }
 
 export async function fetchVideos(): Promise<Video[]> {
   const { data, error } = await supabase
     .from("videos")
-    .select("*")
+    .select(VIDEO_SELECT)
     .order("created_at", { ascending: false });
-  return unwrap<VideoRow[]>(data, error).map(toVideo);
+  return unwrap<(VideoRow & TaxonomyNames)[]>(data, error).map(toVideo);
 }
 
 // ---------- dashboard helpers ----------

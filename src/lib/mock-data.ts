@@ -155,7 +155,6 @@ export interface TrackerRecord {
   editAllowed?: boolean;
 }
 
-export type ServiceType = "companion" | "care";
 export type TransportMode = "sendiri" | "hantar" | "pickup";
 export type BookingStatus =
   | "pending"
@@ -165,24 +164,33 @@ export type BookingStatus =
   | "cancelled";
 export type PaymentStatus = "belum_bayar" | "deposit" | "telah_bayar";
 
-// Caregiver assigned to a booking by admin. Shown to the Anak user so they
-// know who will attend the service.
+// A staff account as a caregiver: admin assigns one to a booking, and the Anak
+// user sees this card so they know who will attend the service.
 export interface Caregiver {
-  id: string;
+  id: string; // the staff user's id
   name: string;
   phone: string;
   avatar?: string;
-  specialization: string;
-  experienceYears: number;
-  rating: number; // 0–5
+  status: User["status"];
+  specialization?: string;
+  experienceYears?: number;
+  rating?: number; // 0–5
   notes?: string;
+}
+
+// A bookable service, from the `service_types` table.
+export interface ServiceTypeOption {
+  id: string;
+  code: string; // stable key, e.g. "companion" / "care"
+  name: string;
+  description: string;
 }
 
 export interface Booking {
   id: string;
   anakId: string;
   parentId?: string; // optional — anak may book without a registered elderly
-  serviceType: ServiceType;
+  serviceTypeId: string;
   date: string; // ISO date (yyyy-mm-dd)
   time: string; // HH:mm
   transport: TransportMode;
@@ -190,7 +198,7 @@ export interface Booking {
   notes?: string;
   status: BookingStatus;
   createdAt: string;
-  caregiverId?: string; // set by admin when a caregiver is assigned
+  caregiverId?: string; // staff user id, set by admin when assigned
   price?: number; // RM
   paymentStatus?: PaymentStatus;
   paymentNotes?: string;
@@ -201,7 +209,9 @@ export type ContentVisibility = "published" | "draft";
 export interface Article {
   id: string;
   title: string;
-  topic: string;
+  topicId?: string; // set on rows read from the DB (mock rows carry names only)
+  subtopicId?: string;
+  topic: string; // display name, resolved from topic_id
   subtopic: string;
   coverImage: string;
   body: string;
@@ -216,7 +226,9 @@ export interface Article {
 export interface Video {
   id: string;
   title: string;
-  topic: string;
+  topicId?: string; // set on rows read from the DB (mock rows carry names only)
+  subtopicId?: string;
+  topic: string; // display name, resolved from topic_id
   subtopic: string;
   url: string; // primary YouTube embed URL
   description: string;
@@ -1417,58 +1429,19 @@ export const videos: Video[] = [
   },
 ];
 
-// Caregivers that admin can assign to a booking.
-export const caregivers: Caregiver[] = [
-  {
-    id: "cg-1",
-    name: "Nurul Aisyah",
-    phone: "012-345 6789",
-    avatar:
-      "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&q=80",
-    specialization: "Penjagaan Warga Emas & Pemantauan Vital",
-    experienceYears: 6,
-    rating: 4.8,
-    notes: "Berpengalaman menjaga pesakit diabetes & darah tinggi.",
-  },
-  {
-    id: "cg-2",
-    name: "Ahmad Faiz bin Rosli",
-    phone: "013-222 3344",
-    avatar:
-      "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80",
-    specialization: "Fisioterapi & Bantuan Mobiliti",
-    experienceYears: 4,
-    rating: 4.5,
-    notes: "Pakar bantuan pergerakan & senaman pemulihan.",
-  },
-  {
-    id: "cg-3",
-    name: "Siti Khadijah binti Omar",
-    phone: "017-998 8776",
-    avatar:
-      "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=200&q=80",
-    specialization: "Teman Harian (Companion)",
-    experienceYears: 3,
-    rating: 4.7,
-    notes: "Mesra & sabar, mahir menemani aktiviti harian.",
-  },
-];
-
-export function getCaregiver(id?: string): Caregiver | undefined {
-  return id ? caregivers.find((c) => c.id === id) : undefined;
-}
-
 const bookingDate = (offset: number) =>
   new Date(today.getTime() + offset * 86400000).toISOString().slice(0, 10);
 
-// Service bookings made by family (anak). Mutable in-memory store.
+// Service bookings made by family (anak). Like every mock id here,
+// serviceTypeId holds a placeholder (the service type's code) that
+// scripts/seed-all.ts remaps to the real UUID.
 export const bookings: Booking[] = [
   // Akan Datang — caregiver sudah ditetapkan oleh admin.
   {
     id: "b1",
     anakId: "u-anak-1",
     parentId: "p-1",
-    serviceType: "companion",
+    serviceTypeId: "companion",
     date: bookingDate(2),
     time: "10:00",
     transport: "hantar",
@@ -1476,7 +1449,7 @@ export const bookings: Booking[] = [
     notes: "Tolong temankan ke klinik untuk pemeriksaan susulan.",
     status: "confirmed",
     createdAt: daysAgo(1),
-    caregiverId: "cg-1",
+    caregiverId: "u-staff-1",
     price: 120,
     paymentStatus: "deposit",
   },
@@ -1485,7 +1458,7 @@ export const bookings: Booking[] = [
     id: "b2",
     anakId: "u-anak-1",
     parentId: "p-2",
-    serviceType: "care",
+    serviceTypeId: "care",
     date: bookingDate(5),
     time: "09:00",
     transport: "pickup",
@@ -1501,7 +1474,7 @@ export const bookings: Booking[] = [
     id: "b3",
     anakId: "u-anak-1",
     parentId: "p-demo",
-    serviceType: "care",
+    serviceTypeId: "care",
     date: bookingDate(0),
     time: "08:30",
     transport: "hantar",
@@ -1509,7 +1482,7 @@ export const bookings: Booking[] = [
     notes: "Penjagaan harian penuh termasuk pemantauan vital.",
     status: "ongoing",
     createdAt: daysAgo(2),
-    caregiverId: "cg-3",
+    caregiverId: "u-staff-1",
     price: 200,
     paymentStatus: "telah_bayar",
   },
@@ -1518,7 +1491,7 @@ export const bookings: Booking[] = [
     id: "b4",
     anakId: "u-anak-1",
     parentId: "p-1",
-    serviceType: "companion",
+    serviceTypeId: "companion",
     date: bookingDate(-7),
     time: "14:00",
     transport: "hantar",
@@ -1526,7 +1499,7 @@ export const bookings: Booking[] = [
     notes: "Teman ke taman & aktiviti senaman ringan.",
     status: "completed",
     createdAt: daysAgo(9),
-    caregiverId: "cg-2",
+    caregiverId: "u-staff-2",
     price: 120,
     paymentStatus: "telah_bayar",
   },
@@ -1535,7 +1508,7 @@ export const bookings: Booking[] = [
     id: "b5",
     anakId: "u-anak-1",
     parentId: "p-2",
-    serviceType: "care",
+    serviceTypeId: "care",
     date: bookingDate(-3),
     time: "11:00",
     transport: "sendiri",
@@ -1545,23 +1518,6 @@ export const bookings: Booking[] = [
     createdAt: daysAgo(5),
     price: 180,
     paymentStatus: "belum_bayar",
-  },
-];
-
-export const SERVICE_TYPES: {
-  key: ServiceType;
-  label: string;
-  desc: string;
-}[] = [
-  {
-    key: "companion",
-    label: "Companion",
-    desc: "Teman & sokongan harian tanpa penjagaan perubatan.",
-  },
-  {
-    key: "care",
-    label: "Care",
-    desc: "Penjagaan termasuk pemantauan kesihatan & ubatan.",
   },
 ];
 

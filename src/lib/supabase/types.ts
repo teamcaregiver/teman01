@@ -1,4 +1,4 @@
-// Hand-written DB types mirroring supabase/migrations/0001_init.sql.
+// Hand-written DB types mirroring supabase/migrations (0001_init.sql onwards).
 // (Regenerate later with `supabase gen types typescript` if the CLI is set up.)
 import type {
   VitalEntry,
@@ -18,7 +18,6 @@ export type BookingStatus =
   | "completed"
   | "cancelled";
 export type PaymentStatus = "belum_bayar" | "deposit" | "telah_bayar";
-export type ServiceType = "companion" | "care";
 export type TransportMode = "sendiri" | "hantar" | "pickup";
 export type ContentVisibility = "published" | "draft";
 
@@ -33,6 +32,11 @@ export type ProfileRow = {
   status: UserStatus;
   phone: string | null;
   avatar_url: string | null;
+  // Caregiver details — meaningful for role 'staff', admin-managed.
+  specialization: string | null;
+  experience_years: number | null;
+  rating: number | null;
+  notes: string | null;
   created_at: string;
 };
 
@@ -79,15 +83,25 @@ export type MedicationRow = {
   prn_type: string | null;
 };
 
+/** One row of the `list_caregivers()` RPC — a staff profile's public card. */
 export type CaregiverRow = {
   id: string;
   name: string;
   phone: string | null;
-  avatar: string | null;
+  avatar_url: string | null;
+  status: UserStatus;
   specialization: string | null;
   experience_years: number | null;
   rating: number | null;
   notes: string | null;
+};
+
+export type ServiceTypeRow = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  created_at: string;
 };
 
 export type TrackerRow = {
@@ -114,7 +128,7 @@ export type BookingRow = {
   id: string;
   anak_id: string;
   parent_id: string | null;
-  service_type: ServiceType;
+  service_type_id: string;
   date: string | null;
   time: string | null;
   transport: TransportMode | null;
@@ -131,8 +145,8 @@ export type BookingRow = {
 export type ArticleRow = {
   id: string;
   title: string;
-  topic: string | null;
-  subtopic: string | null;
+  topic_id: string | null;
+  subtopic_id: string | null;
   cover_image: string | null;
   body: string | null;
   pdf_url: string | null;
@@ -146,8 +160,8 @@ export type ArticleRow = {
 export type VideoRow = {
   id: string;
   title: string;
-  topic: string | null;
-  subtopic: string | null;
+  topic_id: string | null;
+  subtopic_id: string | null;
   url: string | null;
   description: string | null;
   pdf_url: string | null;
@@ -170,12 +184,36 @@ export type SubtopicRow = {
   created_at: string;
 };
 
-type Tbl<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
+type Tbl<
+  Row,
+  Insert = Partial<Row>,
+  Update = Partial<Row>,
+  Relationships extends unknown[] = [],
+> = {
   Row: Row;
   Insert: Insert;
   Update: Update;
-  Relationships: [];
+  Relationships: Relationships;
 };
+
+// Foreign keys that queries embed (`select("*, topic:topics!…(name)")`).
+// Names must match the constraints created in migration 0009.
+type TaxonomyRelationships<T extends string> = [
+  {
+    foreignKeyName: `${T}_topic_id_fkey`;
+    columns: ["topic_id"];
+    isOneToOne: false;
+    referencedRelation: "topics";
+    referencedColumns: ["id"];
+  },
+  {
+    foreignKeyName: `${T}_subtopic_fkey`;
+    columns: ["subtopic_id", "topic_id"];
+    isOneToOne: false;
+    referencedRelation: "subtopics";
+    referencedColumns: ["id", "topic_id"];
+  },
+];
 
 export interface Database {
   public: {
@@ -184,18 +222,20 @@ export interface Database {
       parents: Tbl<ParentRow>;
       parent_anak: Tbl<ParentAnakRow, ParentAnakRow, Partial<ParentAnakRow>>;
       medications: Tbl<MedicationRow>;
-      caregivers: Tbl<CaregiverRow>;
       tracker_records: Tbl<TrackerRow>;
       bookings: Tbl<BookingRow>;
-      articles: Tbl<ArticleRow>;
-      videos: Tbl<VideoRow>;
+      service_types: Tbl<ServiceTypeRow>;
+      articles: Tbl<ArticleRow, Partial<ArticleRow>, Partial<ArticleRow>, TaxonomyRelationships<"articles">>;
+      videos: Tbl<VideoRow, Partial<VideoRow>, Partial<VideoRow>, TaxonomyRelationships<"videos">>;
       topics: Tbl<TopicRow>;
       subtopics: Tbl<SubtopicRow>;
     };
-    // Empty mapped types (NOT Record<string, never>, which would intersect every
+    // Empty mapped type (NOT Record<string, never>, which would intersect every
     // table with `never` and break `.from()` typing).
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      list_caregivers: { Args: Record<string, never>; Returns: CaregiverRow[] };
+    };
     Enums: {
       role: Role;
       user_status: UserStatus;
@@ -203,7 +243,6 @@ export interface Database {
       tracker_status: TrackerStatus;
       booking_status: BookingStatus;
       payment_status: PaymentStatus;
-      service_type: ServiceType;
       transport_mode: TransportMode;
       content_visibility: ContentVisibility;
     };

@@ -4,7 +4,7 @@
 // their rendering logic. Results are deduped/cached by React Query and scoped
 // by RLS to the logged-in user.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Caregiver } from "@/lib/mock-data";
+import type { Caregiver, ServiceTypeOption } from "@/lib/mock-data";
 import * as db from "@/lib/db";
 
 const STALE = 30_000;
@@ -14,6 +14,7 @@ export const qk = {
   parents: ["parents"] as const,
   medications: ["medications"] as const,
   caregivers: ["caregivers"] as const,
+  serviceTypes: ["serviceTypes"] as const,
   trackers: ["trackers"] as const,
   bookings: ["bookings"] as const,
   articles: ["articles"] as const,
@@ -31,6 +32,9 @@ export function useMedications() {
 }
 export function useCaregivers() {
   return useQuery({ queryKey: qk.caregivers, queryFn: db.fetchCaregivers, staleTime: STALE }).data ?? [];
+}
+export function useServiceTypes() {
+  return useQuery({ queryKey: qk.serviceTypes, queryFn: db.fetchServiceTypes, staleTime: STALE }).data ?? [];
 }
 export function useTrackers() {
   return useQuery({ queryKey: qk.trackers, queryFn: db.fetchTrackers, staleTime: STALE }).data ?? [];
@@ -105,11 +109,18 @@ export function useOpenBookingsQuery() {
   });
 }
 
-/** Lookup helper mirroring mock-data's getCaregiver(id). */
+/** Caregiver (staff account) by id. */
 export function useGetCaregiver() {
   const caregivers = useCaregivers();
   return (id?: string): Caregiver | undefined =>
     id ? caregivers.find((c) => c.id === id) : undefined;
+}
+
+/** Service type by id. */
+export function useGetServiceType() {
+  const serviceTypes = useServiceTypes();
+  return (id?: string): ServiceTypeOption | undefined =>
+    id ? serviceTypes.find((s) => s.id === id) : undefined;
 }
 
 /** Invalidate one or more caches after a mutation. */

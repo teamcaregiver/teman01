@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import type { User } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase/client";
 import { adminCreateUser } from "@/lib/admin-users";
+import { qk } from "@/lib/data";
 import { toast } from "sonner";
 import { Check, Pencil, Plus, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
@@ -45,10 +47,18 @@ const EMPTY_ADD = {
   role: "staff" as ManagedRole,
 };
 
-async function fetchStaff(): Promise<User[]> {
+/** A staff/admin account plus the caregiver details shown to families. */
+type StaffMember = User & {
+  specialization?: string;
+  experienceYears?: number;
+  rating?: number;
+  notes?: string;
+};
+
+async function fetchStaff(): Promise<StaffMember[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,name,email,role,status,phone,created_at")
+    .select("id,name,email,role,status,phone,specialization,experience_years,rating,notes,created_at")
     .in("role", ["admin", "staff"])
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -59,24 +69,39 @@ async function fetchStaff(): Promise<User[]> {
     role: p.role,
     status: p.status,
     phone: p.phone ?? undefined,
+    specialization: p.specialization ?? undefined,
+    experienceYears: p.experience_years ?? undefined,
+    rating: p.rating ?? undefined,
+    notes: p.notes ?? undefined,
   }));
 }
+
+/** Empty input -> null; otherwise a number, or NaN when unparseable. */
+const toNumberOrNull = (v: string) => (v.trim() === "" ? null : Number(v));
 
 function StaffPage() {
   const qc = useQueryClient();
   const { data: list = [], isLoading } = useQuery({ queryKey: ["staff"], queryFn: fetchStaff });
-  const refresh = () => qc.invalidateQueries({ queryKey: ["staff"] });
+  // Staff accounts are the caregivers, so their cards refresh too.
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["staff"] });
+    qc.invalidateQueries({ queryKey: qk.caregivers });
+  };
 
   const [q, setQ] = useState("");
   const [addDialog, setAddDialog] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_ADD);
   const [saving, setSaving] = useState(false);
-  const [editTarget, setEditTarget] = useState<User | null>(null);
+  const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
     role: "staff" as ManagedRole,
     status: "" as User["status"],
+    specialization: "",
+    experienceYears: "",
+    rating: "",
+    notes: "",
   });
   const [editSaving, setEditSaving] = useState(false);
 
@@ -105,13 +130,17 @@ function StaffPage() {
     refresh();
   };
 
-  const openEdit = (u: User) => {
+  const openEdit = (u: StaffMember) => {
     setEditTarget(u);
     setEditForm({
       name: u.name,
       phone: u.phone ?? "",
       role: (u.role === "admin" ? "admin" : "staff") as ManagedRole,
       status: u.status,
+      specialization: u.specialization ?? "",
+      experienceYears: u.experienceYears != null ? String(u.experienceYears) : "",
+      rating: u.rating != null ? String(u.rating) : "",
+      notes: u.notes ?? "",
     });
   };
 
@@ -164,6 +193,17 @@ function StaffPage() {
       toast.error(LAST_ADMIN_MSG);
       return;
     }
+    // Same bounds as the checks on profiles in migration 0009.
+    const experienceYears = toNumberOrNull(editForm.experienceYears);
+    const rating = toNumberOrNull(editForm.rating);
+    if (experienceYears !== null && (!Number.isInteger(experienceYears) || experienceYears < 0)) {
+      toast.error("Tahun pengalaman mesti nombor bulat dan tidak negatif.");
+      return;
+    }
+    if (rating !== null && (!Number.isFinite(rating) || rating < 0 || rating > 5)) {
+      toast.error("Penilaian mesti antara 0 dan 5.");
+      return;
+    }
     setEditSaving(true);
     const { error } = await supabase
       .from("profiles")
@@ -172,6 +212,10 @@ function StaffPage() {
         phone: editForm.phone.trim(),
         role: editForm.role,
         status: editForm.status,
+        specialization: editForm.specialization.trim() || null,
+        experience_years: experienceYears,
+        rating,
+        notes: editForm.notes.trim() || null,
       })
       .eq("id", editTarget.id);
     setEditSaving(false);
@@ -322,7 +366,7 @@ function StaffPage() {
 
       {/* Edit Staf Dialog */}
       <Dialog open={!!editTarget} onOpenChange={open => { if (!open) setEditTarget(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Maklumat Staf</DialogTitle>
           </DialogHeader>
@@ -357,6 +401,53 @@ function StaffPage() {
                 </SelectContent>
               </Select>
             </Field>
+            {editForm.role === "staff" && (
+              <div className="space-y-4 rounded-lg border border-border/60 p-3">
+                <div>
+                  <p className="text-xs font-semibold">Profil Caregiver</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Dipaparkan kepada keluarga apabila staf ini ditugaskan ke tempahan.
+                  </p>
+                </div>
+                <Field label="Kepakaran">
+                  <Input
+                    value={editForm.specialization}
+                    onChange={e => setEditForm(f => ({ ...f, specialization: e.target.value }))}
+                    placeholder="Cth: Penjagaan Warga Emas & Pemantauan Vital"
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Tahun Pengalaman">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      step="1"
+                      value={editForm.experienceYears}
+                      onChange={e => setEditForm(f => ({ ...f, experienceYears: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="Penilaian (0–5)">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="5"
+                      step="0.1"
+                      value={editForm.rating}
+                      onChange={e => setEditForm(f => ({ ...f, rating: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+                <Field label="Catatan">
+                  <Textarea
+                    rows={2}
+                    value={editForm.notes}
+                    onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                  />
+                </Field>
+              </div>
+            )}
             {editTarget && isLastActiveAdmin(editTarget) && (
               <p className="rounded-lg bg-status-attention/10 p-2.5 text-[11px] text-muted-foreground">
                 Ini satu-satunya Admin aktif. {LAST_ADMIN_MSG}

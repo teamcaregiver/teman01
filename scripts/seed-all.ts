@@ -1,6 +1,7 @@
 // Seed the remaining tables (medications, tracker_records, bookings, articles,
-// videos, caregivers) from the original mock data, remapping the old string ids
-// (p-1, u-staff-1, cg-1...) to the real UUIDs already created by seed.mjs.
+// videos) from the original mock data, remapping the old string ids
+// (p-1, u-staff-1, service-type codes, topic names...) to the real UUIDs
+// already created by seed.mjs and the migrations.
 //
 // Run AFTER seed.mjs:  node scripts/seed-all.ts
 // (Node 24 strips the TS types; mock-data.ts has no runtime imports.)
@@ -13,7 +14,6 @@ import { dirname, join } from "node:path";
 import {
   users as mockUsers,
   parents as mockParents,
-  caregivers as mockCaregivers,
   medications as mockMeds,
   trackers as mockTrackers,
   bookings as mockBookings,
@@ -61,32 +61,22 @@ async function main() {
     if (real) mockPidToPid.set(p.id, real);
   }
 
-  // ---- caregivers: ensure all mock caregivers exist, map id -> uuid ----
-  const { data: cgRows } = await db.from("caregivers").select("id,name");
-  const nameToCg = new Map((cgRows ?? []).map((c) => [c.name, c.id]));
-  const mockCgToCg = new Map<string, string>();
-  for (const c of mockCaregivers) {
-    let real = nameToCg.get(c.name);
-    if (!real) {
-      const { data, error } = await db
-        .from("caregivers")
-        .insert({
-          name: c.name,
-          phone: c.phone,
-          avatar: c.avatar ?? null,
-          specialization: c.specialization,
-          experience_years: c.experienceYears,
-          rating: c.rating,
-          notes: c.notes ?? null,
-        })
-        .select("id")
-        .single();
-      if (error) { console.error("caregiver insert:", c.name, error.message); continue; }
-      real = data.id;
-      console.log("  + caregiver", c.name);
-    }
-    mockCgToCg.set(c.id, real);
-  }
+  // Mock bookings hold the service type's code where the id goes.
+  const { data: serviceTypeRows } = await db.from("service_types").select("id,code");
+  const codeToServiceType = new Map((serviceTypeRows ?? []).map((s) => [s.code, s.id]));
+
+  // Mock articles/videos carry topic & subtopic names; the tables store ids.
+  const { data: topicRows } = await db.from("topics").select("id,name");
+  const topicId = new Map((topicRows ?? []).map((t) => [t.name, t.id]));
+  const { data: subtopicRows } = await db.from("subtopics").select("id,topic_id,name");
+  const subtopicId = new Map(
+    (subtopicRows ?? []).map((s) => [`${s.topic_id}/${s.name}`, s.id]),
+  );
+  const taxonomyIds = (topic?: string, subtopic?: string) => {
+    const tId = topic ? topicId.get(topic) ?? null : null;
+    const sId = tId && subtopic ? subtopicId.get(`${tId}/${subtopic}`) ?? null : null;
+    return { topic_id: tId, subtopic_id: sId };
+  };
 
   // ---- medications ----
   if ((await count("medications")) === 0) {
@@ -134,11 +124,11 @@ async function main() {
   // ---- bookings ----
   if ((await count("bookings")) === 0) {
     const rows = mockBookings
-      .filter((b) => mockUidToUid.has(b.anakId))
+      .filter((b) => mockUidToUid.has(b.anakId) && codeToServiceType.has(b.serviceTypeId))
       .map((b) => ({
         anak_id: mockUidToUid.get(b.anakId)!,
         parent_id: b.parentId ? mockPidToPid.get(b.parentId) ?? null : null,
-        service_type: b.serviceType,
+        service_type_id: codeToServiceType.get(b.serviceTypeId)!,
         date: b.date ?? null,
         time: b.time ?? null,
         transport: b.transport ?? null,
@@ -146,7 +136,7 @@ async function main() {
         notes: b.notes ?? null,
         status: b.status,
         created_at: b.createdAt,
-        caregiver_id: b.caregiverId ? mockCgToCg.get(b.caregiverId) ?? null : null,
+        caregiver_id: b.caregiverId ? mockUidToUid.get(b.caregiverId) ?? null : null,
         price: b.price ?? null,
         payment_status: b.paymentStatus ?? null,
       }));
@@ -158,8 +148,7 @@ async function main() {
   if ((await count("articles")) === 0) {
     const rows = mockArticles.map((a) => ({
       title: a.title,
-      topic: a.topic ?? null,
-      subtopic: a.subtopic ?? null,
+      ...taxonomyIds(a.topic, a.subtopic),
       cover_image: a.coverImage ?? null,
       body: a.body ?? null,
       pdf_url: a.pdfUrl ?? null,
@@ -177,8 +166,7 @@ async function main() {
   if ((await count("videos")) === 0) {
     const rows = mockVideos.map((v) => ({
       title: v.title,
-      topic: v.topic ?? null,
-      subtopic: v.subtopic ?? null,
+      ...taxonomyIds(v.topic, v.subtopic),
       url: v.url ?? null,
       description: v.description ?? null,
       pdf_url: v.pdfUrl ?? null,

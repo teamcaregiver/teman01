@@ -15,18 +15,20 @@ import { useInvalidate } from "@/lib/data";
 import { toast } from "sonner";
 
 interface Props {
-  topic: string;
-  subtopic: string;
-  onTopicChange: (topic: string) => void;
-  onSubtopicChange: (subtopic: string) => void;
+  /** Selected topic id ("" when none). */
+  topicId: string;
+  /** Selected subtopic id ("" when none). */
+  subtopicId: string;
+  onTopicChange: (topicId: string) => void;
+  onSubtopicChange: (subtopicId: string) => void;
   topicRequired?: boolean;
 }
 
 // Topic + Subtopic selectors shared by the Artikel & Video forms, with inline
 // "add new" so admin can extend the shared taxonomy without leaving the form.
 export function TopicSubtopicFields({
-  topic,
-  subtopic,
+  topicId,
+  subtopicId,
   onTopicChange,
   onSubtopicChange,
   topicRequired,
@@ -36,19 +38,19 @@ export function TopicSubtopicFields({
   const [newTopic, setNewTopic] = useState<string | null>(null);
   const [newSub, setNewSub] = useState<string | null>(null);
 
-  const subOptions = topic ? (tax.subtopics[topic] ?? []) : [];
+  const subOptions = topicId ? (tax.subtopics[topicId] ?? []) : [];
 
   const commitTopic = async () => {
     const name = (newTopic ?? "").trim();
     if (!name) return;
     try {
-      const created = await addTopic(name);
-      onTopicChange(name); // select it whether newly created or pre-existing
+      const result = await addTopic(name);
+      if (!result) return;
+      // Select it whether newly created or pre-existing.
+      onTopicChange(result.id);
       onSubtopicChange("");
-      if (created) {
-        invalidate(TAXONOMY_QK);
-        toast.success(`Topik "${name}" ditambah`);
-      }
+      invalidate(TAXONOMY_QK);
+      if (result.created) toast.success(`Topik "${name}" ditambah`);
       setNewTopic(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal menambah topik");
@@ -57,14 +59,13 @@ export function TopicSubtopicFields({
 
   const commitSub = async () => {
     const name = (newSub ?? "").trim();
-    if (!name || !topic) return;
+    if (!name || !topicId) return;
     try {
-      const created = await addSubtopic(topic, name);
-      onSubtopicChange(name);
-      if (created) {
-        invalidate(TAXONOMY_QK);
-        toast.success(`Subtopik "${name}" ditambah`);
-      }
+      const result = await addSubtopic(topicId, name);
+      if (!result) return;
+      onSubtopicChange(result.id);
+      invalidate(TAXONOMY_QK);
+      if (result.created) toast.success(`Subtopik "${name}" ditambah`);
       setNewSub(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal menambah subtopik");
@@ -77,7 +78,7 @@ export function TopicSubtopicFields({
         <Label className="text-xs">{topicRequired ? "Topik *" : "Topik"}</Label>
         {newTopic === null ? (
           <Select
-            value={topic}
+            value={topicId}
             onValueChange={(v) => {
               onTopicChange(v);
               onSubtopicChange("");
@@ -88,8 +89,8 @@ export function TopicSubtopicFields({
             </SelectTrigger>
             <SelectContent>
               {tax.topics.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -141,17 +142,17 @@ export function TopicSubtopicFields({
         <Label className="text-xs">Subtopik</Label>
         {newSub === null ? (
           <Select
-            value={subtopic}
+            value={subtopicId}
             onValueChange={onSubtopicChange}
-            disabled={!topic}
+            disabled={!topicId}
           >
             <SelectTrigger>
               <SelectValue placeholder="Pilih subtopik" />
             </SelectTrigger>
             <SelectContent>
               {subOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -191,7 +192,7 @@ export function TopicSubtopicFields({
         {newSub === null && (
           <button
             type="button"
-            disabled={!topic}
+            disabled={!topicId}
             onClick={() => setNewSub("")}
             className="inline-flex items-center text-[11px] text-primary hover:underline disabled:opacity-40 disabled:no-underline"
           >

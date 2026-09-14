@@ -3,8 +3,8 @@ import type { Article, ContentVisibility } from "@/lib/mock-data";
 /** Field set shared by the Artikel create and edit forms. */
 export interface ArticleFormValues {
   title: string;
-  topic: string;
-  subtopic: string;
+  topicId: string;
+  subtopicId: string;
   coverImage: string;
   body: string;
   pdfUrl: string;
@@ -15,8 +15,8 @@ export interface ArticleFormValues {
 
 export const EMPTY_ARTICLE_FORM: ArticleFormValues = {
   title: "",
-  topic: "",
-  subtopic: "",
+  topicId: "",
+  subtopicId: "",
   coverImage: "",
   body: "",
   pdfUrl: "",
@@ -33,8 +33,8 @@ export const DEFAULT_COVER_IMAGE =
 export function articleRowFrom(form: ArticleFormValues) {
   return {
     title: form.title.trim(),
-    topic: form.topic,
-    subtopic: form.subtopic,
+    topic_id: form.topicId || null,
+    subtopic_id: form.subtopicId || null,
     cover_image: form.coverImage.trim() || DEFAULT_COVER_IMAGE,
     body: form.body,
     pdf_url: form.pdfUrl || null,
@@ -48,8 +48,8 @@ export function articleRowFrom(form: ArticleFormValues) {
 export function articleFormFrom(a: Article): ArticleFormValues {
   return {
     title: a.title,
-    topic: a.topic,
-    subtopic: a.subtopic,
+    topicId: a.topicId ?? "",
+    subtopicId: a.subtopicId ?? "",
     coverImage: a.coverImage,
     body: a.body,
     pdfUrl: a.pdfUrl ?? "",

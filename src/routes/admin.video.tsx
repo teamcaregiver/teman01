@@ -69,8 +69,8 @@ export const Route = createFileRoute("/admin/video")({
 
 const EMPTY_FORM = {
   title: "",
-  topic: "",
-  subtopic: "",
+  topicId: "",
+  subtopicId: "",
   url: "",
   description: "",
   pdfUrl: "",
@@ -103,8 +103,8 @@ function VideosPage() {
   const openEdit = (v: Video) => {
     setForm({
       title: v.title,
-      topic: v.topic,
-      subtopic: v.subtopic,
+      topicId: v.topicId ?? "",
+      subtopicId: v.subtopicId ?? "",
       url: v.url,
       description: v.description,
       pdfUrl: v.pdfUrl ?? "",
@@ -135,8 +135,8 @@ function VideosPage() {
     }
     const row = {
       title: form.title,
-      topic: form.topic,
-      subtopic: form.subtopic,
+      topic_id: form.topicId || null,
+      subtopic_id: form.subtopicId || null,
       url: youtubeEmbed(form.url) || form.url,
       description: form.description,
       pdf_url: form.pdfUrl || null,
@@ -386,11 +386,11 @@ function VideosPage() {
               />
             </Field>
             <TopicSubtopicFields
-              topic={form.topic}
-              subtopic={form.subtopic}
-              onTopicChange={(topic) => setForm((f) => ({ ...f, topic }))}
-              onSubtopicChange={(subtopic) =>
-                setForm((f) => ({ ...f, subtopic }))
+              topicId={form.topicId}
+              subtopicId={form.subtopicId}
+              onTopicChange={(topicId) => setForm((f) => ({ ...f, topicId }))}
+              onSubtopicChange={(subtopicId) =>
+                setForm((f) => ({ ...f, subtopicId }))
               }
             />
             <Field label="Pautan YouTube *">

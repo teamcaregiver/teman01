@@ -240,8 +240,9 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 - **UI:** Status tabs (All, Pending, Confirmed, Ongoing, Completed, Cancelled); booking table (elderly name, service type, date/time, location, transport, assigned caregiver, status, actions); detail dialog.
 - **Detail dialog:** elderly profile; booking details (date, time, location, service type, notes); transport mode; **assign/change caregiver** dropdown; **payment status** dropdown (Belum Bayar / Deposit / Telah Bayar); **price (RM)** field; status action buttons (Confirm / Start / Complete / Cancel). Shows assigned caregiver card (avatar, name, specialization, experience, rating).
 - **Functions:** Filter by status; assign caregiver; set price & payment status; transition booking status.
-- **Data read:** `bookings`, `caregivers`, `parents`.
+- **Data read:** `bookings`, `service_types`, `parents`; caregivers = staff users (`list_caregivers()`).
 - **Data written:** Update `Booking` (status, caregiverId, price, paymentStatus).
+- **Rules:** Only active staff accounts can be picked as caregiver; the database only accepts a `staff` user, assigned by an admin.
 - **Rules:** Status transitions follow the booking lifecycle (see 5.4).
 - **States:** Loading, per-tab list, empty.
 
@@ -349,7 +350,7 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
   - **History (default):** tabs Akan Datang (Upcoming) / Sedang Berlangsung (Ongoing) / Selesai (Completed) / Dibatalkan (Cancelled). Each booking card shows elderly name, service type, date/time, location, transport, status badge, and the assigned caregiver (avatar, name, specialization, rating, experience). Actions: view detail, cancel (if cancellable), reschedule (date/time pickers).
   - **New booking form:** select elderly (from this user's registered elderly), service type (Companion vs Care), date & time, location, transport (Sendiri / Hantar / Pickup), notes. Submit creates the booking.
 - **Functions:** Create booking; view; cancel; reschedule; filter by status.
-- **Data read:** `bookings` where `anakId = current user`; `caregivers`; this user's `parents`.
+- **Data read:** `bookings` where `anakId = current user`; `service_types`; the staff users assigned to those bookings (`list_caregivers()`); this user's `parents`.
 - **Data written:** Create `Booking` (status `pending`); update (reschedule date/time) or cancel.
 - **Rules:** New bookings start `pending` (admin confirms & assigns caregiver — 3.B.9). A booking may be created without a registered elderly (`parentId` optional). Booking lifecycle in 5.4.
 - **States:** Loading, per-tab list, empty per tab, form idle/submitting.
@@ -413,6 +414,8 @@ A login account for any role.
 | role | `admin` \| `staff` \| `anak` |
 | status | `active` \| `pending` \| `rejected` \| `inactive` |
 | phone | Contact number (optional) |
+| avatar | Profile photo (optional) |
+| specialization, experienceYears, rating, notes | Caregiver details for `staff` users (optional, admin-managed) — see 4.5 |
 
 ### 4.2 Parent (Warga Emas / Elderly)
 The elderly person under care.
@@ -482,14 +485,14 @@ One record per (elderly, staff, day). Holds all care logged that day.
 **MakananEntry:** `masa`, `jenisMakanan?`, `jenisMinum?`, `kuantiti?`, `cecairMl?`, `catatan?`, `pengesahan`.
 
 ### 4.5 Caregiver
-A care worker who can be assigned to a booking (shown to the family).
+Not a separate entity: every **User with role `staff`** is a caregiver and can be assigned to a booking (shown to the family). The card uses these User fields:
 | Field | Meaning |
 |-------|---------|
 | id, name, phone | Identity & contact |
 | avatar | Photo (optional) |
-| specialization | Area of expertise |
-| experienceYears | Years of experience |
-| rating | 0–5 |
+| specialization | Area of expertise (optional) |
+| experienceYears | Years of experience (optional, ≥ 0) |
+| rating | 0–5 (optional) |
 | notes | Optional |
 
 ### 4.6 Booking
@@ -499,14 +502,14 @@ A care service booked by a family member.
 | id | Identifier |
 | anakId | Family member who booked |
 | parentId | Elderly (optional — may book without a registered elderly) |
-| serviceType | `companion` \| `care` |
+| serviceTypeId | Service type (→ ServiceType, 4.8) |
 | date / time | Scheduled date (yyyy-mm-dd) and time (HH:mm) |
 | transport | `sendiri` \| `hantar` \| `pickup` |
 | location | Pickup/service location |
 | notes | Special requests (optional) |
 | status | `pending` \| `confirmed` \| `ongoing` \| `completed` \| `cancelled` |
 | createdAt | Creation timestamp |
-| caregiverId | Assigned caregiver (set by admin) |
+| caregiverId | Assigned caregiver — a `staff` User (set by admin) |
 | price | RM (set by admin) |
 | paymentStatus | `belum_bayar` \| `deposit` \| `telah_bayar` |
 
@@ -514,7 +517,7 @@ A care service booked by a family member.
 | Field (Article) | Meaning |
 |-------|---------|
 | id, title | Identity |
-| topic, subtopic | Taxonomy (4.8) |
+| topicId, subtopicId | Taxonomy (4.8); the subtopic must belong to the topic |
 | coverImage | Cover image URL |
 | body | Article text |
 | pdfUrl / pdfName | Optional attached PDF |
@@ -531,7 +534,7 @@ A care service booked by a family member.
 
 **Payment status** (`PAYMENT_STATUS_LABEL`): belum_bayar→Belum Bayar · deposit→Deposit Dibayar · telah_bayar→Telah Dibayar.
 
-**Service types:** companion → "Teman & sokongan harian tanpa penjagaan perubatan"; care → "Penjagaan termasuk pemantauan kesihatan & ubatan".
+**Service types** (`service_types` table — id, code, name, description): companion → "Teman & sokongan harian tanpa penjagaan perubatan"; care → "Penjagaan termasuk pemantauan kesihatan & ubatan".
 
 **Transport modes:** sendiri → Sediakan kenderaan sendiri · hantar → Hantar ke lokasi · pickup → Ambil di lokasi (pickup).
 
@@ -558,7 +561,7 @@ A care service booked by a family member.
 - **Attention:** suhu ≥ 37.8; BP systolic ≥ 140; nadi ≥ 100; pernafasan ≥ 22; gula darah ≥ 7.5; oksigen < 95.
 - Otherwise **Normal**.
 
-**Content taxonomy (`TOPICS` / `SUBTOPICS`):** Kesihatan (Darah Tinggi, Diabetes, Jantung) · Pemakanan (Diet Seimbang, Suplemen) · Senaman (Ringan, Pernafasan) · Mental (Demensia, Kemurungan). Admins can extend topics/subtopics at runtime.
+**Content taxonomy (`TOPICS` / `SUBTOPICS`):** Kesihatan (Darah Tinggi, Diabetes, Jantung) · Pemakanan (Diet Seimbang, Suplemen) · Senaman (Ringan, Pernafasan) · Mental (Demensia, Kemurungan). Admins can extend topics/subtopics at runtime (`topics` / `subtopics` tables). A topic or subtopic still used by an article or video cannot be deleted.
 
 ---
 

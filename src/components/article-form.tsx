@@ -108,7 +108,7 @@ export function ArticleForm({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.topic) {
+    if (!form.title.trim() || !form.topicId) {
       toast.error("Sila isi tajuk dan topik.");
       return;
     }
@@ -162,10 +162,10 @@ export function ArticleForm({
                 />
               </Field>
               <TopicSubtopicFields
-                topic={form.topic}
-                subtopic={form.subtopic}
-                onTopicChange={(topic) => set("topic", topic)}
-                onSubtopicChange={(subtopic) => set("subtopic", subtopic)}
+                topicId={form.topicId}
+                subtopicId={form.subtopicId}
+                onTopicChange={(topicId) => set("topicId", topicId)}
+                onSubtopicChange={(subtopicId) => set("subtopicId", subtopicId)}
                 topicRequired
               />
               <CoverImageField

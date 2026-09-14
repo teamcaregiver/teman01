@@ -1,5 +1,5 @@
 // Seed demo accounts + a little relational data into Supabase.
-// Run AFTER applying supabase/migrations/0001_init.sql:
+// Run AFTER applying every file in supabase/migrations/:
 //   node scripts/seed.mjs
 // Idempotent: re-running won't duplicate users or elderly.
 
@@ -35,10 +35,13 @@ if (!url || !secret) {
 
 const admin = createClient(url, secret, { auth: { persistSession: false } });
 
+// Staff accounts are the caregivers; `caregiver` holds the details families see.
 const USERS = [
   { key: "admin", name: "Siti Admin", email: "admin@care.my", password: "admin123", role: "admin", status: "active", phone: null },
-  { key: "nurul", name: "Nurul Aisyah", email: "nurul@care.my", password: "staff123", role: "staff", status: "active", phone: "012-3456789" },
-  { key: "faiz", name: "Ahmad Faiz", email: "faiz@care.my", password: "staff123", role: "staff", status: "active", phone: "013-2223344" },
+  { key: "nurul", name: "Nurul Aisyah", email: "nurul@care.my", password: "staff123", role: "staff", status: "active", phone: "012-3456789",
+    caregiver: { specialization: "Penjagaan Warga Emas & Pemantauan Vital", experience_years: 6, rating: 4.8, notes: "Berpengalaman menjaga pesakit diabetes & darah tinggi." } },
+  { key: "faiz", name: "Ahmad Faiz", email: "faiz@care.my", password: "staff123", role: "staff", status: "active", phone: "013-2223344",
+    caregiver: { specialization: "Fisioterapi & Mobiliti", experience_years: 4, rating: 4.6, notes: "Pakar bantuan pergerakan & senaman ringan." } },
   { key: "wei", name: "Lim Wei Ming", email: "wei@care.my", password: "staff123", role: "staff", status: "pending", phone: "017-9988776" },
   { key: "aisha", name: "Aisha Rahman", email: "aisha@mail.my", password: "anak123", role: "anak", status: "active", phone: "011-1112222" },
   { key: "hafiz", name: "Hafiz Zulkifli", email: "hafiz@mail.my", password: "anak123", role: "anak", status: "active", phone: "019-3334444" },
@@ -88,6 +91,7 @@ async function seedUsers() {
     id[u.key] = uid;
     const { error: pErr } = await admin.from("profiles").upsert({
       id: uid, name: u.name, email: u.email, role: u.role, status: u.status, phone: u.phone,
+      ...u.caregiver,
     });
     if (pErr) console.error("  profile upsert failed:", u.email, pErr.message);
   }
@@ -137,30 +141,11 @@ async function seedParents(id) {
   }
 }
 
-async function seedCaregivers() {
-  const CAREGIVERS = [
-    { name: "Nurul Aisyah", phone: "012-345 6789", specialization: "Penjagaan Warga Emas & Pemantauan Vital", experience_years: 6, rating: 4.8, notes: "Berpengalaman menjaga pesakit diabetes & darah tinggi." },
-    { name: "Ahmad Faiz", phone: "013-222 3344", specialization: "Fisioterapi & Mobiliti", experience_years: 4, rating: 4.6, notes: "Pakar bantuan pergerakan & senaman ringan." },
-  ];
-  for (const c of CAREGIVERS) {
-    const { data: found } = await admin.from("caregivers").select("id").eq("name", c.name).maybeSingle();
-    if (found) {
-      console.log("  caregiver exists", c.name);
-      continue;
-    }
-    const { error } = await admin.from("caregivers").insert(c);
-    if (error) console.error("  caregiver insert failed:", c.name, error.message);
-    else console.log("  created caregiver", c.name);
-  }
-}
-
 async function main() {
   console.log("Seeding users...");
   const id = await seedUsers();
   console.log("Seeding parents...");
   await seedParents(id);
-  console.log("Seeding caregivers...");
-  await seedCaregivers();
   console.log("Done.");
 }
 

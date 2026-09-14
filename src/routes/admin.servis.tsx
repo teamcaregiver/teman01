@@ -28,7 +28,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookingStatusPill } from "@/components/booking-status-pill";
 import {
-  SERVICE_TYPES,
   TRANSPORT_MODES,
   BOOKING_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
@@ -40,6 +39,7 @@ import {
   useUsers,
   useCaregivers,
   useGetCaregiver,
+  useGetServiceType,
   useInvalidate,
   qk,
 } from "@/lib/data";
@@ -81,6 +81,7 @@ function ServiceMonitoring() {
   const parents = useParents();
   const users = useUsers();
   const getCaregiver = useGetCaregiver();
+  const getServiceType = useGetServiceType();
   const invalidate = useInvalidate();
   const [filter, setFilter] = useState<FilterKey>("all");
   // Track the id, not a snapshot: after any mutation the dialog re-reads the
@@ -231,14 +232,14 @@ function ServiceMonitoring() {
               const p = b.parentId
                 ? parents.find((x) => x.id === b.parentId)
                 : undefined;
-              const svc = SERVICE_TYPES.find((s) => s.key === b.serviceType);
+              const svc = getServiceType(b.serviceTypeId);
               const cg = getCaregiver(b.caregiverId);
               const when = format(new Date(`${b.date}T${b.time}`), "dd MMM yyyy, HH:mm");
               return (
                 <TableRow
                   key={b.id}
                   tabIndex={0}
-                  aria-label={`Lihat tempahan ${svc?.label ?? b.serviceType} — ${anak?.name ?? "pelanggan"} pada ${when}`}
+                  aria-label={`Lihat tempahan ${svc?.name ?? "servis"} — ${anak?.name ?? "pelanggan"} pada ${when}`}
                   className="cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
                   onClick={(e) => {
                     // Let controls inside the row keep their own behaviour.
@@ -264,7 +265,7 @@ function ServiceMonitoring() {
                   <TableCell className="text-sm">
                     {p?.fullName ?? "—"}
                   </TableCell>
-                  <TableCell className="text-sm">{svc?.label}</TableCell>
+                  <TableCell className="text-sm">{svc?.name}</TableCell>
                   <TableCell className="max-w-[180px] truncate text-xs text-muted-foreground">
                     {b.location}
                   </TableCell>
@@ -344,22 +345,28 @@ function ServiceDetail({
   const parents = useParents();
   const caregivers = useCaregivers();
   const getCaregiver = useGetCaregiver();
+  const getServiceType = useGetServiceType();
   const anak = users.find((u) => u.id === b.anakId);
   const p = b.parentId ? parents.find((x) => x.id === b.parentId) : undefined;
-  const svc = SERVICE_TYPES.find((s) => s.key === b.serviceType);
+  const svc = getServiceType(b.serviceTypeId);
   const trans = TRANSPORT_MODES.find((t) => t.key === b.transport);
   const cg = getCaregiver(b.caregiverId);
+  // Every active staff account can be assigned. The current assignee stays
+  // listed even if their account was since deactivated.
+  const assignable = caregivers.filter(
+    (c) => c.status === "active" || c.id === b.caregiverId,
+  );
 
   return (
     <div className="space-y-5 pb-6">
       <DialogHeader>
         <div className="flex items-center gap-2">
           <DialogTitle className="font-display text-lg">
-            {svc?.label}
+            {svc?.name}
           </DialogTitle>
           <BookingStatusPill status={b.status} />
         </div>
-        <p className="text-xs text-muted-foreground">{svc?.desc}</p>
+        <p className="text-xs text-muted-foreground">{svc?.description}</p>
       </DialogHeader>
 
       {/* Status management — Grab-style flow */}
@@ -469,7 +476,7 @@ function ServiceDetail({
             <div className="min-w-0">
               <p className="font-medium">{cg.name}</p>
               <p className="text-xs text-muted-foreground">
-                {cg.specialization} · {cg.phone}
+                {[cg.specialization, cg.phone].filter(Boolean).join(" · ")}
               </p>
             </div>
           </div>
@@ -485,7 +492,7 @@ function ServiceDetail({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Tiada caregiver</SelectItem>
-              {caregivers.map((c) => (
+              {assignable.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>

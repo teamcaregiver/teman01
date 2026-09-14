@@ -10,10 +10,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
-  SERVICE_TYPES, TRANSPORT_MODES, BOOKING_STATUS_LABEL, PAYMENT_STATUS_LABEL,
+  TRANSPORT_MODES, BOOKING_STATUS_LABEL, PAYMENT_STATUS_LABEL,
 } from "@/lib/mock-data";
-import type { Booking, Caregiver, Parent, ServiceType, TransportMode, BookingStatus } from "@/lib/mock-data";
-import { useParents, useBookings, useGetCaregiver, useInvalidate, qk } from "@/lib/data";
+import type { Booking, Caregiver, Parent, TransportMode, BookingStatus } from "@/lib/mock-data";
+import {
+  useParents, useBookings, useGetCaregiver, useGetServiceType, useServiceTypes, useInvalidate, qk,
+} from "@/lib/data";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
@@ -151,8 +153,9 @@ function ServicePage() {
 function BookingCard({ booking: b, onClick }: { booking: Booking; onClick: () => void }) {
   const parents = useParents();
   const getCaregiver = useGetCaregiver();
+  const getServiceType = useGetServiceType();
   const p = b.parentId ? parents.find(x => x.id === b.parentId) : undefined;
-  const svc = SERVICE_TYPES.find(s => s.key === b.serviceType);
+  const svc = getServiceType(b.serviceTypeId);
   const cg = getCaregiver(b.caregiverId);
 
   return (
@@ -161,7 +164,7 @@ function BookingCard({ booking: b, onClick }: { booking: Booking; onClick: () =>
       className="hover-lift cursor-pointer border-border/60 p-4"
     >
       <div className="flex items-center gap-2">
-        <p className="font-display font-semibold">{svc?.label}</p>
+        <p className="font-display font-semibold">{svc?.name}</p>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusTone[b.status]}`}>
           {BOOKING_STATUS_LABEL[b.status]}
         </span>
@@ -202,8 +205,9 @@ function BookingDialog({ booking: b, onClose, onReschedule }: {
 }) {
   const parents = useParents();
   const getCaregiver = useGetCaregiver();
+  const getServiceType = useGetServiceType();
   const p = b?.parentId ? parents.find(x => x.id === b.parentId) : undefined;
-  const svc = b ? SERVICE_TYPES.find(s => s.key === b.serviceType) : undefined;
+  const svc = getServiceType(b?.serviceTypeId);
   const trans = b ? TRANSPORT_MODES.find(t => t.key === b.transport) : undefined;
   const cg = getCaregiver(b?.caregiverId);
 
@@ -225,12 +229,12 @@ function BookingDialog({ booking: b, onClose, onReschedule }: {
           <>
             <DialogHeader>
               <div className="flex items-center gap-2">
-                <DialogTitle>{svc?.label}</DialogTitle>
+                <DialogTitle>{svc?.name}</DialogTitle>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusTone[b.status]}`}>
                   {BOOKING_STATUS_LABEL[b.status]}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">{svc?.desc}</p>
+              <p className="text-xs text-muted-foreground">{svc?.description}</p>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -335,21 +339,27 @@ function CaregiverBlock({ caregiver: cg }: { caregiver: Caregiver }) {
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="font-display font-semibold">{cg.name}</p>
-          <p className="text-xs text-muted-foreground">{cg.specialization}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1 text-status-attention">
-              <Star className="h-3 w-3 fill-current" /> {cg.rating.toFixed(1)}
-            </span>
-            <span>{cg.experienceYears} tahun pengalaman</span>
-          </div>
+          {cg.specialization && <p className="text-xs text-muted-foreground">{cg.specialization}</p>}
+          {(cg.rating != null || cg.experienceYears != null) && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+              {cg.rating != null && (
+                <span className="inline-flex items-center gap-1 text-status-attention">
+                  <Star className="h-3 w-3 fill-current" /> {cg.rating.toFixed(1)}
+                </span>
+              )}
+              {cg.experienceYears != null && <span>{cg.experienceYears} tahun pengalaman</span>}
+            </div>
+          )}
         </div>
       </div>
-      <a
-        href={`tel:${cg.phone.replace(/\s/g, "")}`}
-        className="mt-3 flex items-center gap-1.5 rounded-lg bg-muted/40 px-3 py-2 text-xs font-medium hover:bg-muted"
-      >
-        <Phone className="h-3.5 w-3.5" /> {cg.phone}
-      </a>
+      {cg.phone && (
+        <a
+          href={`tel:${cg.phone.replace(/\s/g, "")}`}
+          className="mt-3 flex items-center gap-1.5 rounded-lg bg-muted/40 px-3 py-2 text-xs font-medium hover:bg-muted"
+        >
+          <Phone className="h-3.5 w-3.5" /> {cg.phone}
+        </a>
+      )}
       {cg.notes && <p className="mt-2 text-[11px] italic text-muted-foreground">{cg.notes}</p>}
     </div>
   );
@@ -374,7 +384,10 @@ function BookingForm({ userId, myParents, onCancel, onCreated }: {
   onCancel: () => void;
   onCreated: () => void;
 }) {
-  const [serviceType, setServiceType] = useState<ServiceType>("companion");
+  const serviceTypes = useServiceTypes();
+  const [pickedServiceTypeId, setPickedServiceTypeId] = useState("");
+  // Default to the first service once the list has loaded.
+  const serviceTypeId = pickedServiceTypeId || serviceTypes[0]?.id || "";
   const [parentId, setParentId] = useState<string>(myParents[0]?.id ?? "none");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -384,6 +397,10 @@ function BookingForm({ userId, myParents, onCancel, onCreated }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!serviceTypeId) {
+      toast.error("Sila pilih jenis servis.");
+      return;
+    }
     if (!date || !time || !location.trim()) {
       toast.error("Sila lengkapkan tarikh, masa dan lokasi.");
       return;
@@ -391,7 +408,7 @@ function BookingForm({ userId, myParents, onCancel, onCreated }: {
     const { error } = await supabase.from("bookings").insert({
       anak_id: userId,
       parent_id: parentId === "none" ? null : parentId,
-      service_type: serviceType,
+      service_type_id: serviceTypeId,
       date,
       time,
       transport,
@@ -420,21 +437,21 @@ function BookingForm({ userId, myParents, onCancel, onCreated }: {
           <div>
             <Label className="text-xs">Jenis Servis</Label>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              {SERVICE_TYPES.map(s => {
-                const active = serviceType === s.key;
-                const Icon = s.key === "companion" ? HeartHandshake : Stethoscope;
+              {serviceTypes.map(s => {
+                const active = serviceTypeId === s.id;
+                const Icon = s.code === "companion" ? HeartHandshake : Stethoscope;
                 return (
                   <button
                     type="button"
-                    key={s.key}
-                    onClick={() => setServiceType(s.key)}
+                    key={s.id}
+                    onClick={() => setPickedServiceTypeId(s.id)}
                     className={`rounded-xl border p-4 text-left transition-colors ${
                       active ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:bg-muted/40"
                     }`}
                   >
                     <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                    <p className="mt-2 font-display font-semibold">{s.label}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{s.desc}</p>
+                    <p className="mt-2 font-display font-semibold">{s.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{s.description}</p>
                   </button>
                 );
               })}

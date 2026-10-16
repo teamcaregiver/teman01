@@ -58,6 +58,16 @@ function matchesCategory(t: TrackerRecord, c: TrackerCategory): boolean {
       return hasChecklist(t);
     case "laporan":
       return hasLaporan(t);
+    case "perkumuhan":
+      return (t.perkumuhanEntries?.length ?? 0) > 0;
+    case "tingkahLaku":
+      return (t.tingkahLakuEntries?.length ?? 0) > 0;
+    case "posisi":
+      return (t.posisiEntries?.length ?? 0) > 0;
+    case "kesakitan":
+      return (t.kesakitanEntries?.length ?? 0) > 0;
+    case "risikoJatuh":
+      return (t.risikoJatuhEntries?.length ?? 0) > 0;
     default:
       return true;
   }
@@ -136,7 +146,7 @@ function TrackerAdmin() {
       <div>
         <h1 className="font-display text-2xl font-bold">Rekod Harian</h1>
         <p className="text-sm text-muted-foreground">
-          Pantau keseluruhan rekod penjagaan harian merentas semua warga emas
+          Pantau keseluruhan rekod penjagaan harian merentas semua penerima servis
           (paparan sahaja).
         </p>
       </div>
@@ -173,16 +183,16 @@ function TrackerAdmin() {
       <Card className="border-border/60 p-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Warga Emas</Label>
+            <Label className="text-xs">Penerima Servis</Label>
             <Select
               value={pid}
               onValueChange={(v) => setFilter({ pid: v === "all" ? undefined : v })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Warga emas" />
+                <SelectValue placeholder="Penerima servis" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua warga emas</SelectItem>
+                <SelectItem value="all">Semua penerima servis</SelectItem>
                 {parents.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.fullName}
@@ -192,16 +202,16 @@ function TrackerAdmin() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Caregiver / Staf</Label>
+            <Label className="text-xs">Temanion</Label>
             <Select
               value={sid}
               onValueChange={(v) => setFilter({ sid: v === "all" ? undefined : v })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Staf" />
+                <SelectValue placeholder="Temanion" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua staf</SelectItem>
+                <SelectItem value="all">Semua Temanion</SelectItem>
                 {users
                   .filter((u) => u.role === "staff")
                   .map((s) => (
@@ -278,11 +288,11 @@ function TrackerAdmin() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Tarikh</TableHead>
-                <TableHead>Warga Emas</TableHead>
+                <TableHead>Penerima Servis</TableHead>
                 <TableHead>Staf</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Kandungan</TableHead>
-                <TableHead>TD</TableHead>
+                <TableHead>Tekanan Darah</TableHead>
                 <TableHead>Gula</TableHead>
                 <TableHead className="text-right">Tindakan</TableHead>
               </TableRow>
@@ -325,7 +335,7 @@ function TrackerAdmin() {
                     <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
                       {filtersActive
                         ? "Cuba longgarkan penapis atau pilih julat tarikh yang lain."
-                        : "Rekod penjagaan harian akan dipaparkan di sini sebaik sahaja staf menghantarnya."}
+                        : "Rekod penjagaan harian akan dipaparkan di sini sebaik sahaja Temanion menghantarnya."}
                     </p>
                     {filtersActive && (
                       <Button size="sm" variant="outline" className="mt-3" onClick={resetFilters}>
@@ -340,7 +350,7 @@ function TrackerAdmin() {
                 const p = parents.find((x) => x.id === t.parentId);
                 const s = users.find((x) => x.id === t.staffId);
                 const { sys, dia, gula } = latestVital(t);
-                const who = p?.fullName ?? "Warga emas tidak dikenali";
+                const who = p?.fullName ?? "Penerima servis tidak dikenali";
                 return (
                   <TableRow
                     key={t.id}

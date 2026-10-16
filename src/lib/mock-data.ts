@@ -1,4 +1,12 @@
 // Phase 1 in-memory dummy data. Replaced by Lovable Cloud queries in Phase 2.
+import type {
+  KesakitanEntry,
+  PerkumuhanEntry,
+  PosisiEntry,
+  RisikoJatuhEntry,
+  TingkahLakuEntry,
+} from "./pemantauan";
+
 export type Role = "admin" | "staff" | "anak";
 
 export interface User {
@@ -38,6 +46,8 @@ export interface Parent {
   sekatanPemakanan?: string;
   /** Set when the resident is archived (hidden from active lists). */
   archivedAt?: string;
+  /** State / area from src/lib/lokasi.ts, for the admin location filter. */
+  lokasi?: string;
 }
 
 export type TrackerStatus = "normal" | "attention" | "critical";
@@ -153,6 +163,12 @@ export interface TrackerRecord {
   editedByAdmin?: boolean;
   editedAt?: string;
   editAllowed?: boolean;
+  // Manual 3 / Buku 3 monitoring tables (see src/lib/pemantauan.ts)
+  perkumuhanEntries?: PerkumuhanEntry[];
+  tingkahLakuEntries?: TingkahLakuEntry[];
+  posisiEntries?: PosisiEntry[];
+  kesakitanEntries?: KesakitanEntry[];
+  risikoJatuhEntries?: RisikoJatuhEntry[];
 }
 
 export type TransportMode = "sendiri" | "hantar" | "pickup";
@@ -202,6 +218,20 @@ export interface Booking {
   price?: number; // RM
   paymentStatus?: PaymentStatus;
   paymentNotes?: string;
+  confirmedAt?: string; // when the booking was first approved
+}
+
+// An open service assigned to the logged-in staff (list_my_services() RPC).
+export interface MyService {
+  id: string;
+  parentId?: string;
+  clientName?: string; // the elderly; unset when booked without one
+  bookedBy?: string; // the anak who booked
+  serviceName: string;
+  date: string; // ISO date (yyyy-mm-dd), "" when not set
+  time: string; // HH:mm, "" when not set
+  location: string;
+  status: BookingStatus;
 }
 
 export type ContentVisibility = "published" | "draft";
@@ -237,6 +267,20 @@ export interface Video {
   visibility?: ContentVisibility;
   views?: number;
   createdAt: string;
+}
+
+// A link on the Borang board shared by admin and staff (`form_links` table).
+export interface FormLink {
+  id: string;
+  title: string;
+  url: string; // normalised https link, validated by checkFormLink()
+  description: string;
+  createdBy?: string; // user id; unset if that account was removed
+  createdByName: string; // author's name when the link was posted
+  createdAt: string;
+  archivedAt?: string; // set -> hidden from the active list
+  deletedAt?: string; // set -> soft-deleted, visible to admins only
+  deletedBy?: string;
 }
 
 export const VISIBILITY_LABEL: Record<ContentVisibility, string> = {

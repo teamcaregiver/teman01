@@ -18,6 +18,7 @@ import { useParentQuery, useUsers, useTrackers, useInvalidate, qk } from "@/lib/
 import { supabase } from "@/lib/supabase/client";
 import { VitalCharts } from "@/components/vital-charts";
 import { StatusBadge } from "@/components/status-badge";
+import { ParentChecklistCard } from "@/components/checklist-editor";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Archive, ArchiveRestore, ChevronLeft, Pencil } from "lucide-react";
@@ -72,7 +73,7 @@ function WargaDetail() {
   if (!parent)
     return (
       <EmptyPanel
-        title="Warga emas tidak dijumpai"
+        title="Penerima servis tidak dijumpai"
         hint="Rekod ini mungkin telah dipadam atau pautan tidak sah."
         action={
           <Button variant="outline" size="sm" asChild>
@@ -137,7 +138,7 @@ function WargaDetail() {
 
       {archived && (
         <Card className="border-border/60 bg-muted/30 p-4 text-xs text-muted-foreground">
-          Warga emas ini diarkibkan pada{" "}
+          Penerima servis ini diarkibkan pada{" "}
           <span className="font-medium text-foreground">
             {format(new Date(parent.archivedAt!), "dd MMM yyyy, HH:mm")}
           </span>
@@ -158,6 +159,7 @@ function WargaDetail() {
             <Item label="Status Mobiliti" value={parent.statusMobiliti} />
             <Item label="Status Kognitif" value={parent.statusKognitif} />
             <Item label="No. Insurans" value={parent.noInsurans} />
+            <Item label="Lokasi" value={parent.lokasi} />
             <div className="col-span-2"><Item label="Alamat" value={parent.address} /></div>
           </dl>
         </Card>
@@ -197,12 +199,15 @@ function WargaDetail() {
         </div>
       </Card>
 
+      {/* This resident's own daily checklist (default until edited) */}
+      <ParentChecklistCard parentId={parent.id} parentName={parent.fullName} />
+
       {/* Vital sign graphs */}
       <div>
         <h2 className="mb-3 font-display text-lg font-bold">Graf Tanda Vital</h2>
         {rows.length === 0 ? (
           <Card className="border-border/60 p-8 text-center text-sm text-muted-foreground">
-            Tiada rekod harian lagi untuk warga emas ini.
+            Tiada rekod harian lagi untuk penerima servis ini.
           </Card>
         ) : (
           <VitalCharts records={rows} />
@@ -214,11 +219,11 @@ function WargaDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Arkibkan {parent.fullName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              {parent.fullName} akan disembunyikan daripada senarai warga emas
+              {parent.fullName} akan disembunyikan daripada senarai penerima servis
               aktif, dan tidak lagi muncul dalam senarai pilihan penjagaan. Rekod
               ini <span className="font-medium">tidak dipadam</span> — rekod
               harian, tanda vital, ubat-ubatan, pautan akaun anak dan sejarah
-              servis semuanya dikekalkan, dan warga emas ini boleh dipulihkan
+              servis semuanya dikekalkan, dan penerima servis ini boleh dipulihkan
               pada bila-bila masa.
             </AlertDialogDescription>
           </AlertDialogHeader>

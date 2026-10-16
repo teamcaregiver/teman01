@@ -134,7 +134,7 @@ function VitalForm() {
               onChange={(e) => set("pernafasan", e.target.value)}
             />
           </Field>
-          <Field label="TD Sistolik">
+          <Field label="Tekanan Darah Sistolik">
             <Input
               inputMode="numeric"
               placeholder="120"
@@ -142,7 +142,7 @@ function VitalForm() {
               onChange={(e) => set("bpSistolik", e.target.value)}
             />
           </Field>
-          <Field label="TD Diastolik">
+          <Field label="Tekanan Darah Diastolik">
             <Input
               inputMode="numeric"
               placeholder="80"

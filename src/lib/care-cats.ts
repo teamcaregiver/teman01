@@ -4,7 +4,7 @@ import { HeartPulse, Pill, Utensils, ClipboardList } from "lucide-react";
 function vitalSummary(v: VitalEntry): string {
   const parts: string[] = [];
   if (v.suhu != null) parts.push(`${v.suhu}°C`);
-  if (v.bpSistolik != null) parts.push(`TD ${v.bpSistolik}/${v.bpDiastolik}`);
+  if (v.bpSistolik != null) parts.push(`Tekanan Darah ${v.bpSistolik}/${v.bpDiastolik}`);
   if (v.nadi != null) parts.push(`Nadi ${v.nadi}`);
   if (v.gulaDarah != null) parts.push(`Gula ${v.gulaDarah}`);
   if (v.oksigen != null) parts.push(`SpO₂ ${v.oksigen}%`);

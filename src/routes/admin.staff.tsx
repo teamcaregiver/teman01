@@ -10,12 +10,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { TemanionFields } from "@/components/temanion-fields";
+import { TemanionProfileDialog } from "@/components/temanion-profile-dialog";
+import { LokasiFilter } from "@/components/lokasi-select";
 import type { User } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase/client";
 import { adminCreateUser } from "@/lib/admin-users";
 import { qk } from "@/lib/data";
+import { SEMUA_LOKASI, matchesLokasi } from "@/lib/lokasi";
+import { matchesSearch } from "@/lib/search";
+import {
+  BUTIRAN_KOSONG,
+  STAFF_COLUMNS,
+  butiranDariAhli,
+  butiranKeBaris,
+  toStaffMember,
+} from "@/lib/temanion";
+import type { ButiranTemanionForm, StaffMember } from "@/lib/temanion";
 import { toast } from "sonner";
-import { Check, Pencil, Plus, Search, X } from "lucide-react";
+import { Check, MapPin, Pencil, Plus, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 export const Route = createFileRoute("/admin/staff")({
@@ -26,7 +39,7 @@ export const Route = createFileRoute("/admin/staff")({
 type ManagedRole = "admin" | "staff";
 
 const ROLE_OPTIONS: { value: ManagedRole; label: string }[] = [
-  { value: "staff", label: "Staf" },
+  { value: "staff", label: "Temanion" },
   { value: "admin", label: "Admin" },
 ];
 
@@ -47,33 +60,14 @@ const EMPTY_ADD = {
   role: "staff" as ManagedRole,
 };
 
-/** A staff/admin account plus the caregiver details shown to families. */
-type StaffMember = User & {
-  specialization?: string;
-  experienceYears?: number;
-  rating?: number;
-  notes?: string;
-};
-
 async function fetchStaff(): Promise<StaffMember[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,name,email,role,status,phone,specialization,experience_years,rating,notes,created_at")
+    .select(STAFF_COLUMNS)
     .in("role", ["admin", "staff"])
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((p) => ({
-    id: p.id,
-    name: p.name,
-    email: p.email,
-    role: p.role,
-    status: p.status,
-    phone: p.phone ?? undefined,
-    specialization: p.specialization ?? undefined,
-    experienceYears: p.experience_years ?? undefined,
-    rating: p.rating ?? undefined,
-    notes: p.notes ?? undefined,
-  }));
+  return (data ?? []).map(toStaffMember);
 }
 
 /** Empty input -> null; otherwise a number, or NaN when unparseable. */
@@ -89,8 +83,11 @@ function StaffPage() {
   };
 
   const [q, setQ] = useState("");
+  const [lokasi, setLokasi] = useState(SEMUA_LOKASI);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [addDialog, setAddDialog] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_ADD);
+  const [addButiran, setAddButiran] = useState<ButiranTemanionForm>(BUTIRAN_KOSONG);
   const [saving, setSaving] = useState(false);
   const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
   const [editForm, setEditForm] = useState({
@@ -103,13 +100,14 @@ function StaffPage() {
     rating: "",
     notes: "",
   });
+  const [editButiran, setEditButiran] = useState<ButiranTemanionForm>(BUTIRAN_KOSONG);
   const [editSaving, setEditSaving] = useState(false);
 
-  const needle = q.trim().toLowerCase();
   const filtered = list.filter(
-    (u) =>
-      u.name.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle),
+    (u) => matchesSearch([u.name, u.email, u.phone], q) && matchesLokasi(u.lokasi, lokasi),
   );
+  // Read from the list so the pop-up shows the saved values after an edit.
+  const profile = list.find((u) => u.id === profileId) ?? null;
 
   // Frontend half of the "keep one active admin" rule. The DB trigger enforces
   // the same thing, so a stale list here can never actually bypass it.
@@ -126,11 +124,18 @@ function StaffPage() {
     }
     const { error } = await supabase.from("profiles").update({ status }).eq("id", u.id);
     if (error) return toast.error(error.message);
-    toast.success("Status staf dikemaskini");
+    toast.success("Status Temanion dikemaskini");
     refresh();
   };
 
+  const openAdd = () => {
+    setAddForm(EMPTY_ADD);
+    setAddButiran(BUTIRAN_KOSONG);
+    setAddDialog(true);
+  };
+
   const openEdit = (u: StaffMember) => {
+    setProfileId(null);
     setEditTarget(u);
     setEditForm({
       name: u.name,
@@ -142,6 +147,7 @@ function StaffPage() {
       rating: u.rating != null ? String(u.rating) : "",
       notes: u.notes ?? "",
     });
+    setEditButiran(butiranDariAhli(u));
   };
 
   const handleAdd = async () => {
@@ -161,22 +167,42 @@ function StaffPage() {
       toast.error("Sila pilih peranan.");
       return;
     }
+    // Checked before the account exists, so a bad age never leaves a half-made Temanion.
+    const butiran = addForm.role === "staff" ? butiranKeBaris(addButiran) : null;
+    if (butiran && !butiran.ok) {
+      toast.error(butiran.message);
+      return;
+    }
     setSaving(true);
     try {
-      await adminCreateUser({
+      const created = await adminCreateUser({
         name: addForm.name.trim(),
         email: addForm.email.trim(),
         phone: addForm.phone.trim(),
         password: addForm.password,
         role: addForm.role,
       });
-      const roleLabel = addForm.role === "admin" ? "Admin" : "Staf";
+      const roleLabel = addForm.role === "admin" ? "Admin" : "Temanion";
+      // The account function only knows the login fields; the Temanion details
+      // are saved on the new profile right after (admin may update any profile).
+      if (butiran?.ok) {
+        const { error } = await supabase.from("profiles").update(butiran.row).eq("id", created.id);
+        if (error) {
+          toast.warning(
+            `${roleLabel} ${addForm.name.trim()} ditambah, tetapi maklumat tambahan gagal disimpan: ${error.message}. Sila kemas kini melalui Edit.`,
+          );
+          setAddForm(EMPTY_ADD);
+          setAddDialog(false);
+          refresh();
+          return;
+        }
+      }
       toast.success(`${roleLabel} ${addForm.name.trim()} berjaya ditambah`);
       setAddForm(EMPTY_ADD);
       setAddDialog(false);
       refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal menambah staf.");
+      toast.error(e instanceof Error ? e.message : "Gagal menambah Temanion.");
     } finally {
       setSaving(false);
     }
@@ -204,6 +230,12 @@ function StaffPage() {
       toast.error("Penilaian mesti antara 0 dan 5.");
       return;
     }
+    // Temanion details only apply to staff; an admin account keeps whatever it has.
+    const butiran = editForm.role === "staff" ? butiranKeBaris(editButiran) : null;
+    if (butiran && !butiran.ok) {
+      toast.error(butiran.message);
+      return;
+    }
     setEditSaving(true);
     const { error } = await supabase
       .from("profiles")
@@ -216,11 +248,12 @@ function StaffPage() {
         experience_years: experienceYears,
         rating,
         notes: editForm.notes.trim() || null,
+        ...(butiran?.ok ? butiran.row : {}),
       })
       .eq("id", editTarget.id);
     setEditSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Maklumat staf dikemaskini");
+    toast.success("Maklumat Temanion dikemaskini");
     setEditTarget(null);
     refresh();
   };
@@ -242,24 +275,32 @@ function StaffPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold">Pengurusan Staf</h1>
-          <p className="text-sm text-muted-foreground">Lulus permohonan & urus akaun penjaga.</p>
+          <h1 className="font-display text-2xl font-bold">Pengurusan Temanion</h1>
+          <p className="text-sm text-muted-foreground">Lulus permohonan & urus akaun Temanion.</p>
         </div>
-        <Button onClick={() => { setAddForm(EMPTY_ADD); setAddDialog(true); }}>
-          <Plus className="mr-1 h-4 w-4" /> Tambah Staf
+        <Button onClick={openAdd}>
+          <Plus className="mr-1 h-4 w-4" /> Tambah Temanion
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Cari nama atau emel..." value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-sm sm:w-auto sm:flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Cari nama, emel atau telefon..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        <LokasiFilter value={lokasi} onChange={setLokasi} values={list.map((u) => u.lokasi)} />
       </div>
 
       <Card className="border-border/60 p-0">
         <div className="divide-y divide-border">
           {isLoading && <p className="p-6 text-center text-sm text-muted-foreground">Memuatkan...</p>}
           {!isLoading && filtered.length === 0 && (
-            <p className="p-6 text-center text-sm text-muted-foreground">Tiada staf dijumpai.</p>
+            <p className="p-6 text-center text-sm text-muted-foreground">Tiada Temanion dijumpai.</p>
           )}
           {filtered.map((u, i) => {
             const role: ManagedRole = u.role === "admin" ? "admin" : "staff";
@@ -278,12 +319,26 @@ function StaffPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="min-w-0 truncate font-medium">{u.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => setProfileId(u.id)}
+                        className="min-w-0 cursor-pointer truncate text-left font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        title={`Lihat profil ${u.name}`}
+                      >
+                        {u.name}
+                      </button>
                       <Badge variant="outline" className={roleTone[role]}>
-                        {role === "admin" ? "Admin" : "Staf"}
+                        {role === "admin" ? "Admin" : "Temanion"}
                       </Badge>
+                      {u.lokasi && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <MapPin className="h-3 w-3" /> {u.lokasi}
+                        </span>
+                      )}
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">{u.email} · {u.phone}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {[u.email, u.phone].filter(Boolean).join(" · ")}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -321,22 +376,21 @@ function StaffPage() {
         </div>
       </Card>
 
-      {/* Tambah Staf Dialog */}
+      <TemanionProfileDialog
+        member={profile}
+        onOpenChange={(open) => {
+          if (!open) setProfileId(null);
+        }}
+        onEdit={openEdit}
+      />
+
+      {/* Tambah Temanion Dialog */}
       <Dialog open={addDialog} onOpenChange={setAddDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Tambah Staf Baru</DialogTitle>
+            <DialogTitle>Tambah Temanion Baru</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Field label="Nama Penuh *">
-              <Input value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} placeholder="Cth: Nurul Aisyah" />
-            </Field>
-            <Field label="Emel *">
-              <Input type="email" value={addForm.email} onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))} placeholder="nurul@care.my" />
-            </Field>
-            <Field label="No. Telefon">
-              <Input value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} placeholder="012-3456789" />
-            </Field>
             <Field label="Peranan *">
               <Select
                 value={addForm.role}
@@ -350,25 +404,48 @@ function StaffPage() {
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
-                Admin boleh urus semua akaun & tetapan sistem. Staf hanya urus penjagaan.
+                Admin boleh urus semua akaun & tetapan sistem. Temanion hanya urus penjagaan.
               </p>
             </Field>
-            <Field label="Kata Laluan Sementara *">
-              <PasswordInput value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} placeholder="Min. 6 aksara" />
+            <Field label="Nama Penuh *">
+              <Input value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} placeholder="Cth: Norizzuddin bin Kasim" />
             </Field>
+            <Field label="No. Telefon">
+              <Input value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} placeholder="012-3456789" />
+            </Field>
+            {addForm.role === "staff" && (
+              <div className="rounded-lg border border-border/60 p-3">
+                <p className="mb-3 text-xs font-semibold">Maklumat Temanion</p>
+                <TemanionFields
+                  value={addButiran}
+                  onChange={(patch) => setAddButiran((b) => ({ ...b, ...patch }))}
+                />
+              </div>
+            )}
+            <div className="space-y-4 rounded-lg border border-border/60 p-3">
+              <p className="text-xs font-semibold">Akaun Log Masuk</p>
+              <Field label="Emel *">
+                <Input type="email" value={addForm.email} onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))} placeholder="nama@contoh.my" />
+              </Field>
+              <Field label="Kata Laluan Sementara *">
+                <PasswordInput value={addForm.password} onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))} placeholder="Min. 6 aksara" />
+              </Field>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setAddDialog(false)} disabled={saving}>Batal</Button>
-            <Button onClick={handleAdd} disabled={saving}>{saving ? "Menyimpan..." : "Tambah Staf"}</Button>
+            <Button onClick={handleAdd} disabled={saving}>
+              {saving ? "Menyimpan..." : addForm.role === "admin" ? "Tambah Admin" : "Tambah Temanion"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Staf Dialog */}
+      {/* Edit Temanion Dialog */}
       <Dialog open={!!editTarget} onOpenChange={open => { if (!open) setEditTarget(null); }}>
-        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Maklumat Staf</DialogTitle>
+            <DialogTitle>Edit Maklumat Temanion</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <Field label="Nama Penuh *">
@@ -402,51 +479,60 @@ function StaffPage() {
               </Select>
             </Field>
             {editForm.role === "staff" && (
-              <div className="space-y-4 rounded-lg border border-border/60 p-3">
-                <div>
-                  <p className="text-xs font-semibold">Profil Caregiver</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Dipaparkan kepada keluarga apabila staf ini ditugaskan ke tempahan.
-                  </p>
-                </div>
-                <Field label="Kepakaran">
-                  <Input
-                    value={editForm.specialization}
-                    onChange={e => setEditForm(f => ({ ...f, specialization: e.target.value }))}
-                    placeholder="Cth: Penjagaan Warga Emas & Pemantauan Vital"
+              <>
+                <div className="rounded-lg border border-border/60 p-3">
+                  <p className="mb-3 text-xs font-semibold">Maklumat Temanion</p>
+                  <TemanionFields
+                    value={editButiran}
+                    onChange={(patch) => setEditButiran((b) => ({ ...b, ...patch }))}
                   />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Tahun Pengalaman">
+                </div>
+                <div className="space-y-4 rounded-lg border border-border/60 p-3">
+                  <div>
+                    <p className="text-xs font-semibold">Profil Temanion</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Dipaparkan kepada keluarga apabila Temanion ini ditugaskan ke tempahan.
+                    </p>
+                  </div>
+                  <Field label="Kepakaran">
                     <Input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      step="1"
-                      value={editForm.experienceYears}
-                      onChange={e => setEditForm(f => ({ ...f, experienceYears: e.target.value }))}
+                      value={editForm.specialization}
+                      onChange={e => setEditForm(f => ({ ...f, specialization: e.target.value }))}
+                      placeholder="Cth: Penjagaan Warga Emas & Pemantauan Vital"
                     />
                   </Field>
-                  <Field label="Penilaian (0–5)">
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      max="5"
-                      step="0.1"
-                      value={editForm.rating}
-                      onChange={e => setEditForm(f => ({ ...f, rating: e.target.value }))}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Tahun Pengalaman">
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        step="1"
+                        value={editForm.experienceYears}
+                        onChange={e => setEditForm(f => ({ ...f, experienceYears: e.target.value }))}
+                      />
+                    </Field>
+                    <Field label="Penilaian (0–5)">
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        max="5"
+                        step="0.1"
+                        value={editForm.rating}
+                        onChange={e => setEditForm(f => ({ ...f, rating: e.target.value }))}
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Catatan">
+                    <Textarea
+                      rows={2}
+                      value={editForm.notes}
+                      onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
                     />
                   </Field>
                 </div>
-                <Field label="Catatan">
-                  <Textarea
-                    rows={2}
-                    value={editForm.notes}
-                    onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                  />
-                </Field>
-              </div>
+              </>
             )}
             {editTarget && isLastActiveAdmin(editTarget) && (
               <p className="rounded-lg bg-status-attention/10 p-2.5 text-[11px] text-muted-foreground">

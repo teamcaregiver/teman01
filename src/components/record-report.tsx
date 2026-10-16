@@ -18,6 +18,8 @@ import type {
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useActivityPhotoUrls } from "@/lib/data";
+import { PemantauanReport } from "@/components/pemantauan-report";
+import { adaPemantauan } from "@/lib/pemantauan";
 import {
   Thermometer,
   HeartPulse,
@@ -486,9 +488,9 @@ function VitalMetric({
 }
 
 // Structured daily-care record rendered as one table per category (Tanda Vital,
-// Ubatan, Makanan & Minuman, Laporan Aktiviti, Catatan Khas) on desktop, with
-// card fallbacks on mobile. Shared by the family progress page and the staff
-// Sejarah Rekod detail.
+// Ubatan, Makanan & Minuman, the Manual 3 monitoring tables, Laporan Aktiviti,
+// Catatan Khas) on desktop, with card fallbacks on mobile. Shared by the family
+// progress page, the admin record page and the staff Sejarah Rekod detail.
 export function RecordReport({
   record,
   showPengesahan = true,
@@ -503,6 +505,7 @@ export function RecordReport({
     record.vitalEntries?.length ||
     record.ubatanEntries?.length ||
     record.makananEntries?.length ||
+    adaPemantauan(record) ||
     record.aktiviti ||
     record.gambar?.length;
 
@@ -731,6 +734,9 @@ export function RecordReport({
             </div>
           </Section>
         )}
+
+      {/* Manual 3 monitoring tables (perkumuhan, mood, posisi, kesakitan, risiko jatuh) */}
+      <PemantauanReport record={record} showPengesahan={showPengesahan} />
 
       {/* Activity + photos — desktop table; mobile keeps text + photo grid.
           A report may be photos only. */}

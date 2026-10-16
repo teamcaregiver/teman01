@@ -1,27 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   TRANSPORT_MODES, BOOKING_STATUS_LABEL, PAYMENT_STATUS_LABEL,
 } from "@/lib/mock-data";
-import type { Booking, Caregiver, Parent, TransportMode, BookingStatus } from "@/lib/mock-data";
+import type { Booking, Caregiver, BookingStatus } from "@/lib/mock-data";
 import {
-  useParents, useBookings, useGetCaregiver, useGetServiceType, useServiceTypes, useInvalidate, qk,
+  useParents, useBookings, useGetCaregiver, useGetServiceType, useInvalidate, qk,
 } from "@/lib/data";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
-  CalendarClock, Car, MapPin, HeartHandshake, Stethoscope, Plus, ChevronLeft,
+  CalendarClock, Car, MapPin, HeartHandshake, Info,
   Phone, Star, UserCog, CreditCard, ClipboardList, Hourglass,
 } from "lucide-react";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
@@ -63,25 +58,11 @@ function bucketOf(b: Booking): Bucket {
 
 function ServicePage() {
   const { user } = useAuth();
-  const parents = useParents();
   const bookings = useBookings();
   const invalidate = useInvalidate();
-  const myParents = parents.filter(p => p.anakIds.includes(user?.id ?? ""));
 
-  const [view, setView] = useState<"history" | "form">("history");
   const [tab, setTab] = useState<Bucket>("upcoming");
   const [selected, setSelected] = useState<Booking | null>(null);
-
-  if (view === "form") {
-    return (
-      <BookingForm
-        userId={user?.id ?? ""}
-        myParents={myParents}
-        onCancel={() => setView("history")}
-        onCreated={() => { invalidate(qk.bookings); setTab("upcoming"); setView("history"); }}
-      />
-    );
-  }
 
   const myBookings = bookings
     .filter(b => b.anakId === user?.id)
@@ -99,14 +80,18 @@ function ServicePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-xl font-bold">Tempah Servis</h1>
-          <p className="text-sm text-muted-foreground">Urus & pantau tempahan servis untuk orang tersayang.</p>
-        </div>
-        <Button onClick={() => setView("form")} className="shrink-0">
-          <Plus className="mr-1.5 h-4 w-4" /> Tambah Tempahan
-        </Button>
+      <div>
+        <h1 className="font-display text-xl font-bold">Servis</h1>
+        <p className="text-sm text-muted-foreground">Pantau tempahan servis untuk orang tersayang.</p>
+      </div>
+
+      {/* Bookings are made by admin (issue #9); families follow them here. */}
+      <div className="flex items-start gap-2.5 rounded-xl border border-teal/30 bg-teal/10 p-3 text-xs">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal" />
+        <p>
+          Tempahan servis dibuat oleh admin. Untuk membuat tempahan baharu,
+          menukar atau membatalkan tempahan, sila hubungi admin.
+        </p>
       </div>
 
       {/* Status tabs */}
@@ -373,141 +358,6 @@ function CaregiverPending() {
         <p className="text-sm font-medium text-status-attention">Caregiver belum ditetapkan</p>
         <p className="text-xs text-muted-foreground">Menunggu admin menetapkan caregiver untuk tempahan ini.</p>
       </div>
-    </div>
-  );
-}
-
-// ---- New booking form (shown only after "Tambah Tempahan") ----
-function BookingForm({ userId, myParents, onCancel, onCreated }: {
-  userId: string;
-  myParents: Parent[];
-  onCancel: () => void;
-  onCreated: () => void;
-}) {
-  const serviceTypes = useServiceTypes();
-  const [pickedServiceTypeId, setPickedServiceTypeId] = useState("");
-  // Default to the first service once the list has loaded.
-  const serviceTypeId = pickedServiceTypeId || serviceTypes[0]?.id || "";
-  const [parentId, setParentId] = useState<string>(myParents[0]?.id ?? "none");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [transport, setTransport] = useState<TransportMode>("hantar");
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!serviceTypeId) {
-      toast.error("Sila pilih jenis servis.");
-      return;
-    }
-    if (!date || !time || !location.trim()) {
-      toast.error("Sila lengkapkan tarikh, masa dan lokasi.");
-      return;
-    }
-    const { error } = await supabase.from("bookings").insert({
-      anak_id: userId,
-      parent_id: parentId === "none" ? null : parentId,
-      service_type_id: serviceTypeId,
-      date,
-      time,
-      transport,
-      location,
-      notes: notes || null,
-      status: "pending",
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Tempahan dihantar. Menunggu pengesahan admin.");
-    onCreated();
-  };
-
-  return (
-    <div className="space-y-5">
-      <button onClick={onCancel} className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-4 w-4" /> Kembali ke tempahan
-      </button>
-      <div>
-        <h1 className="font-display text-xl font-bold">Tempah Servis Baharu</h1>
-        <p className="text-sm text-muted-foreground">Pilih servis Companion atau Care untuk orang tersayang.</p>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <Card className="border-border/60 p-4 space-y-4">
-          {/* Service type cards */}
-          <div>
-            <Label className="text-xs">Jenis Servis</Label>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              {serviceTypes.map(s => {
-                const active = serviceTypeId === s.id;
-                const Icon = s.code === "companion" ? HeartHandshake : Stethoscope;
-                return (
-                  <button
-                    type="button"
-                    key={s.id}
-                    onClick={() => setPickedServiceTypeId(s.id)}
-                    className={`rounded-xl border p-4 text-left transition-colors ${
-                      active ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:bg-muted/40"
-                    }`}
-                  >
-                    <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                    <p className="mt-2 font-display font-semibold">{s.name}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{s.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Elderly (optional) */}
-          <Field label="Untuk Warga Emas (pilihan)">
-            <Select value={parentId} onValueChange={setParentId}>
-              <SelectTrigger><SelectValue placeholder="Pilih warga emas" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Tiada / belum berdaftar</SelectItem>
-                {myParents.map(p => <SelectItem key={p.id} value={p.id}>{p.fullName}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {/* Date & time */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Tarikh"><Input type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
-            <Field label="Masa"><Input type="time" value={time} onChange={e => setTime(e.target.value)} /></Field>
-          </div>
-
-          {/* Transport */}
-          <Field label="Pengangkutan">
-            <Select value={transport} onValueChange={v => setTransport(v as TransportMode)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TRANSPORT_MODES.map(t => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          <Field label="Lokasi / Alamat">
-            <Textarea rows={2} value={location} onChange={e => setLocation(e.target.value)} placeholder="Alamat penuh untuk servis dijalankan" />
-          </Field>
-
-          <Field label="Catatan (pilihan)">
-            <Textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Keperluan khas, masa tambahan, dll." />
-          </Field>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onCancel}>Batal</Button>
-            <Button type="submit">Hantar Tempahan</Button>
-          </div>
-        </Card>
-      </form>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      {children}
     </div>
   );
 }

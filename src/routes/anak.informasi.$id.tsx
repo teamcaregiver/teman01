@@ -18,7 +18,7 @@ function ArticleDetail() {
     queryFn: () => fetchArticleById(id),
   });
   if (isLoading) return <p className="text-sm text-muted-foreground">Memuatkan...</p>;
-  if (!a) return <p>Manual tidak dijumpai.</p>;
+  if (!a) return <p>Buku tidak dijumpai.</p>;
   return (
     <div className="space-y-4">
       <Link

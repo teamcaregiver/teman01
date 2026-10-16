@@ -173,7 +173,7 @@ function AktivitiForm() {
           </div>
           <p className="mt-1.5 text-[11px] text-muted-foreground">
             JPG, PNG atau WebP · maksimum 5 MB setiap gambar. Hanya admin,
-            staf bertugas dan keluarga warga emas ini boleh melihatnya.
+            Temanion bertugas dan keluarga warga emas ini boleh melihatnya.
           </p>
         </div>
       </Card>

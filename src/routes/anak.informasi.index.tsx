@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Download, FileText, Search, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
+import { Buku3 } from "@/components/buku3";
 
 export const Route = createFileRoute("/anak/informasi/")({
   component: InfoLibrary,
@@ -18,9 +19,12 @@ export const Route = createFileRoute("/anak/informasi/")({
 function InfoLibrary() {
   const articles = useArticles();
   const videos = useVideos();
+  const [tab, setTab] = useState("artikel");
   const [topic, setTopic] = useState<string>("Semua");
   const [sub, setSub] = useState<string>("Semua");
   const [q, setQ] = useState("");
+  // Buku 3 is one fixed book, not tagged by topic.
+  const buku3 = tab === "buku3";
 
   const subOptions = topic === "Semua" ? [] : (SUBTOPICS[topic] ?? []);
 
@@ -40,9 +44,9 @@ function InfoLibrary() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-xl font-bold">Manual Caregiver</h1>
+        <h1 className="font-display text-xl font-bold">Buku Caregiver</h1>
         <p className="text-sm text-muted-foreground">
-          Panduan & manual penjagaan warga emas untuk caregiver.
+          Panduan & buku penjagaan warga emas untuk caregiver.
         </p>
       </div>
 
@@ -56,7 +60,7 @@ function InfoLibrary() {
         />
       </div>
 
-      <div className="space-y-2">
+      <div className={buku3 ? "hidden" : "space-y-2"}>
         <div className="flex flex-wrap gap-1.5">
           {["Semua", ...TOPICS].map((t) => (
             <button
@@ -93,14 +97,15 @@ function InfoLibrary() {
         </AnimatePresence>
       </div>
 
-      <Tabs defaultValue="artikel">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="artikel">
-            Manual 1 ({filteredArticles.length})
+            Buku 1 ({filteredArticles.length})
           </TabsTrigger>
           <TabsTrigger value="video">
-            Manual 2 ({filteredVideos.length})
+            Buku 2 ({filteredVideos.length})
           </TabsTrigger>
+          <TabsTrigger value="buku3">Buku 3</TabsTrigger>
         </TabsList>
         <TabsContent value="artikel" className="mt-3">
           <StaggerList>
@@ -199,6 +204,9 @@ function InfoLibrary() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+        <TabsContent value="buku3" className="mt-3">
+          <Buku3 query={q} />
         </TabsContent>
       </Tabs>
     </div>

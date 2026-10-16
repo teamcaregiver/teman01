@@ -86,7 +86,7 @@ export const DEMO_CREDENTIALS: {
   label: string;
 }[] = [
   { role: "admin", email: "admin@care.my", password: "admin123", label: "Admin" },
-  { role: "staff", email: "nurul@care.my", password: "staff123", label: "Staf / Penjaga" },
+  { role: "staff", email: "nurul@care.my", password: "staff123", label: "Temanion / Penjaga" },
   { role: "anak", email: "aisha@mail.my", password: "anak123", label: "Anak / Keluarga" },
 ];
 

@@ -22,7 +22,7 @@ function StaffLayout() {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur">
             <SidebarTrigger />
-            <span className="font-display text-sm font-semibold">Panel Staf</span>
+            <span className="font-display text-sm font-semibold">Panel Temanion</span>
           </header>
           <main className="min-w-0 flex-1 p-4 md:p-6">
             <PageTransition>

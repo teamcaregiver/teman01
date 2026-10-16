@@ -57,7 +57,7 @@ export function RecordDetail({ record }: { record: TrackerRecord }) {
         <span>{format(new Date(record.date), "dd MMM yyyy, HH:mm")}</span>
         <span>·</span>
         <span>
-          Staf:{" "}
+          Temanion:{" "}
           <span className="font-medium text-foreground">{s?.name ?? "—"}</span>
         </span>
         <StatusBadge status={record.status} />

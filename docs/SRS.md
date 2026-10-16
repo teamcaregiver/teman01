@@ -45,6 +45,11 @@ The UI is in **Malay**. Key terms used throughout this document and the codebase
 | **Senarai semak** | Daily care checklist |
 | **Waktu** | Time slot / period of day (pagi/tengahari/petang/malam) |
 | **Pengesahan** | Confirmation — the staff member who recorded an entry |
+| **Temanion** | The name used on the admin and staff panels for a staff member / caregiver |
+| **Penerima servis / Klien** | The elderly person receiving care, as named on the admin and staff panels (family pages still say *warga emas*) |
+| **Penempah servis** | The family account a booking was made for (the booker) |
+| **Buku 1 / 2 / 3** | The family's reading library: articles, videos, and Buku 3 (Manual 3, *Jadual Pemantauan*) |
+| **Jadual pemantauan** | Manual 3 monitoring tables recorded by staff: perkumuhan, tingkah laku & emosi, penukaran posisi, skor kesakitan, risiko jatuh |
 
 ---
 
@@ -57,7 +62,7 @@ There are three roles (`Role = "admin" | "staff" | "anak"`). Each role has its o
 |------|--------------|-----------------|
 | **Admin** | `/admin` | System oversight: manage staff, elderly, content, monitor records & bookings |
 | **Staff** | `/staf` | Daily care delivery: record vitals, medication, meals, activities for assigned elderly |
-| **Anak (Family)** | `/anak` | Register elderly, book services, view elderly progress, read information |
+| **Anak (Family)** | `/anak` | Register elderly, follow the service bookings admin makes for them, view elderly progress, read information |
 
 User accounts also carry a **status**: `active`, `pending`, `rejected`, `inactive`. Only `active` users can sign in.
 
@@ -77,16 +82,17 @@ User accounts also carry a **status**: `active`, `pending`, `rejected`, `inactiv
 - `/daftar-staff` — Staff registration
 - `/daftar-anak` — Family registration
 
-**Admin** (`/admin`, role = admin)
-- `/admin` — Dashboard
-- `/admin/staff` — Staff management
-- `/admin/warga-emas` — Elderly list
-- `/admin/warga-emas/baru` — Register new elderly
-- `/admin/warga-emas/$parentId` — Elderly detail/edit
+**Admin** (`/admin`, role = admin) — menu order: operations first, education content last
+- `/admin` — Dashboard ("Ringkasan")
+- `/admin/staff` — Temanion management ("Pengurusan Temanion")
+- `/admin/warga-emas` — Penerima Servis list
+- `/admin/warga-emas/baru` — Register new Penerima Servis
+- `/admin/warga-emas/$parentId` — Penerima Servis detail/edit
 - `/admin/tracker` — All daily records
+- `/admin/servis` — Service booking monitoring (admin creates bookings here)
+- `/admin/borang` — Borang (shared form links)
 - `/admin/artikel` — Article management
 - `/admin/video` — Video management
-- `/admin/servis` — Service booking monitoring
 
 **Staff** (`/staf`, role = staff)
 - `/staf` — Dashboard
@@ -97,15 +103,21 @@ User accounts also carry a **status**: `active`, `pending`, `rejected`, `inactiv
 - `/staf/tracker/$parentId/ubat` — Record medication given
 - `/staf/tracker/$parentId/makanan` — Record food & drink
 - `/staf/tracker/$parentId/aktiviti` — Daily activity report
+- `/staf/tracker/$parentId/perkumuhan` — Output: urine / stool / vomit (Manual 3 unit 5)
+- `/staf/tracker/$parentId/tingkah-laku` — Behaviour & emotion / mood (unit 6)
+- `/staf/tracker/$parentId/posisi` — Position change for bedridden patients (unit 7)
+- `/staf/tracker/$parentId/kesakitan` — Pain score (unit 8)
+- `/staf/tracker/$parentId/risiko-jatuh` — Fall-risk assessment (unit 9)
 - `/staf/tracker/$parentId/sejarah/$recordId` — View a past record
+- `/staf/borang` — Borang (shared form links)
 
 **Anak / Family** (`/anak`, role = anak)
 - `/anak` — Home
 - `/anak/daftar-warga` — Register elderly
-- `/anak/service` — Service booking (history + new booking)
+- `/anak/service` — Servis: the family's bookings (read-only; admin makes bookings)
 - `/anak/perkembangan` — Progress list
 - `/anak/perkembangan/$parentId` — Elderly progress detail
-- `/anak/informasi` — Information library
+- `/anak/informasi` — Buku Caregiver (Buku 1 articles, Buku 2 videos, Buku 3 Jadual Pemantauan)
 - `/anak/informasi/$id` — Article/video detail
 
 ---
@@ -156,36 +168,36 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 #### 3.B.1 Admin dashboard — `/admin`
 - **Purpose:** System-wide summary at a glance.
 - **Access:** Admin.
-- **UI:** Stat cards (total elderly, active staff, daily records, content count); table of the most recent daily records (elderly name, time, blood pressure, blood sugar, status badge).
+- **UI:** Stat cards **Klien** (active care recipients), **Temanion Aktif**, **Rekod Hari Ini** (always today's records, whatever the list filter shows), **Kandungan** (articles + videos); list of the most recent daily records with a date filter (Hari Ini / 7 Hari Lalu / Bulan Ini / Tarikh Tersuai); open service requests.
 - **Data read:** Counts across `parents`, `users` (staff), `trackers`, content; latest tracker records.
 - **States:** Loading, populated, empty.
 
-#### 3.B.2 Staff management — `/admin/staff`
-- **Purpose:** Approve, edit and manage caregiver accounts.
+#### 3.B.2 Temanion management — `/admin/staff`
+- **Purpose:** Approve, edit and manage Temanion (caregiver) and admin accounts.
 - **Access:** Admin.
-- **UI:** Search box; table of staff (name, email, phone, status, actions); "Add staff" dialog; edit dialog.
+- **UI:** Search box (name, email, phone); **location filter** (all / one location / no location); list (name, role, location, email, phone, status, actions); "Tambah Temanion" dialog; edit dialog. **Clicking a name opens a profile pop-up**: personal details, skills, Profil Temanion, and Tugasan (assigned care recipients and active services), with an "Edit Maklumat" button.
 - **Functions:**
-  - Search staff by name/email.
-  - Add a staff account (name, email, phone, password) — created active by admin.
-  - Edit a staff account (name, phone, status).
+  - Search; filter by location.
+  - Add an account — created active by admin. Temanion details follow the application format: name, **age**, phone, **nationality**, **gender**, **race**, **location** (fixed list, 4.8), **address**, **skills**; plus email and temporary password.
+  - Edit an account (name, phone, role, status, Temanion details, caregiver card fields).
   - Change status: `active`, `pending`, `rejected`, `inactive` (this is how pending applications from 3.A.3 are approved/rejected).
-- **Data read:** `users` where `role = staff`.
-- **Data written:** Create/update `User` records (staff).
-- **Rules:** Status governs whether the staff member can log in (only `active`).
+- **Data read:** `profiles` where `role in (admin, staff)`; `parents` and `bookings` for the Tugasan section.
+- **Data written:** Create/update `User` records.
+- **Rules:** Status governs whether the account can log in (only `active`). Age must be 16–100 and is stored as a birth year. Temanion details are admin-managed; a Temanion can read but not change them (enforced in the database).
 - **States:** Loading, list, empty, no-search-results.
 
-#### 3.B.3 Elderly list — `/admin/warga-emas`
-- **Purpose:** Browse all elderly residents.
+#### 3.B.3 Penerima Servis list — `/admin/warga-emas`
+- **Purpose:** Browse all care recipients.
 - **Access:** Admin.
-- **UI:** Search box; responsive card grid — each card shows avatar/initials, full name, IC, gender, medical condition, assigned staff name, number of linked family members, relationship badge. "Register new" button → `/admin/warga-emas/baru`.
-- **Data read:** `parents` (all); resolves assigned staff name and linked anak count.
+- **UI:** Aktif / Arkib tabs; search (name, IC); **location filter**; responsive card grid — each card shows a blue (male) / pink (female) person icon, full name, IC, gender, location, **No. Telefon**, **Booking Diluluskan** (date of the latest approved, not cancelled booking + its service), **Temanion Terakhir** (Temanion of the latest started service, else the latest scheduled one, else the Temanion assigned for daily records), **Penempah Servis** (family account of the latest booking). "Daftar Penerima Servis" button → `/admin/warga-emas/baru`.
+- **Data read:** `parents`; `bookings`; `service_types`; `profiles` (names).
 - **States:** Loading, grid, empty, no-search-results.
 
 #### 3.B.4 Register new elderly — `/admin/warga-emas/baru`
 - **Purpose:** Admin creates a full elderly profile, optionally creating/linking a family account at the same time.
 - **Access:** Admin.
 - **UI / fields (4 sections):**
-  1. **Personal:** full name, IC, birth date, gender (L/P), phone, relationship, address.
+  1. **Personal:** full name, IC, birth date, gender (L/P), phone, relationship, **location** (fixed list, 4.8), address.
   2. **Medical:** blood type, mobility status, cognitive status, insurance no., medical condition, medication list, allergies, dietary restrictions.
   3. **Doctor:** doctor name, doctor/clinic phone, referral hospital/clinic.
   4. **Emergency & child account:** emergency contact (Name — Phone); checkbox to **create a new child (anak) account** at the same time (name, email, phone, temporary password) **or** select/link an **existing** child account from a dropdown.
@@ -206,7 +218,7 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 #### 3.B.6 All daily records — `/admin/tracker`
 - **Purpose:** Oversight of every daily care record from all staff/elderly.
 - **Access:** Admin.
-- **UI:** Filters — elderly (all/specific), staff (all/specific), date range (from/to), category (vital signs, medication, food/drink, checklist, daily report). Table — elderly name, date/time, staff name, category indicators (icons for what was recorded), status badge, view action. Detail sheet shows the full record (all vital entries, medication, food, activity, checklist, photos).
+- **UI:** Filters — care recipient (all/specific), Temanion (all/specific), date range (from/to), category (vital signs, medication, food/drink, checklist, daily report, and the five Manual 3 tables: perkumuhan, tingkah laku & emosi, penukaran posisi, skor kesakitan, risiko jatuh). Table — elderly name, date/time, staff name, category indicators (icons for what was recorded), status badge, view action. Detail sheet shows the full record (all vital entries, medication, food, activity, checklist, photos).
 - **Functions:** Filter; open a record's full detail; (admin can grant edit access to a record — see Rules).
 - **Data read:** `trackers` (all), filtered.
 - **Data written:** Optionally set `editAllowed` on a record to re-open it for staff editing.
@@ -235,16 +247,28 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 - **States:** Loading, list, empty.
 
 #### 3.B.9 Service booking monitoring — `/admin/servis`
-- **Purpose:** Manage all care-service bookings end-to-end.
+- **Purpose:** Create and manage all care-service bookings end-to-end. **Only admin makes bookings.**
 - **Access:** Admin.
-- **UI:** Status tabs (All, Pending, Confirmed, Ongoing, Completed, Cancelled); booking table (elderly name, service type, date/time, location, transport, assigned caregiver, status, actions); detail dialog.
-- **Detail dialog:** elderly profile; booking details (date, time, location, service type, notes); transport mode; **assign/change caregiver** dropdown; **payment status** dropdown (Belum Bayar / Deposit / Telah Bayar); **price (RM)** field; status action buttons (Confirm / Start / Complete / Cancel). Shows assigned caregiver card (avatar, name, specialization, experience, rating).
-- **Functions:** Filter by status; assign caregiver; set price & payment status; transition booking status.
-- **Data read:** `bookings`, `service_types`, `parents`; caregivers = staff users (`list_caregivers()`).
-- **Data written:** Update `Booking` (status, caregiverId, price, paymentStatus).
+- **UI:** "Tambah Tempahan" button; search box (care recipient, booker, service, location, Temanion — any word order); status tabs (All, Pending, Confirmed, Ongoing, Completed, Cancelled) with counts that follow the search; booking table (**Tarikh & Masa, Penerima Servis, Servis, Lokasi, Temanion, Status, Tindakan**); detail dialog.
+- **Tambah Tempahan dialog:** Penerima Servis*; Penempah Servis* (family accounts linked to that person — picked automatically when there is one; a hint links to the edit page when none is linked); service type*; date* & time*; service address* (pre-filled from the person's address); transport; optional Temanion; starting status Disahkan (default) or Menunggu Pengesahan; notes.
+- **Detail dialog:** Penempah Servis + phone; Penerima Servis (link/change); date & time; transport; **Dicipta Pada**; **Diluluskan Pada**; address; notes; **payment status** and **price (RM)**; status action buttons (Confirm / Start / Complete / Cancel); **Temanion Ditugaskan** card and assign/change dropdown; link to the booking's daily records.
+- **Functions:** Create a booking for a family; search; filter by status; assign Temanion; set price & payment status; transition booking status.
+- **Data read:** `bookings`, `service_types`, `parents`, `profiles`; Temanion = staff users (`list_caregivers()`).
+- **Data written:** Create `Booking`; update `Booking` (status, caregiverId, parentId, price, paymentStatus).
+- **Rules:** The database stamps `confirmedAt` the first time a booking is confirmed / ongoing / completed.
 - **Rules:** Only active staff accounts can be picked as caregiver; the database only accepts a `staff` user, assigned by an admin.
 - **Rules:** Status transitions follow the booking lifecycle (see 5.4).
 - **States:** Loading, per-tab list, empty.
+
+#### 3.B.10 Borang (form links) — `/admin/borang`
+- **Purpose:** A shared board of form links (Google Forms, Microsoft Forms, Jotform, …) that admin and staff post for the whole team.
+- **Access:** Admin (same page as staff, 3.C.10, with extra powers).
+- **UI:** Tabs **Aktif** / **Arkib** / **Dipadam** with counts; search (title, site, description, author); card grid — title, site name, description, "Ditambah oleh …" + date, and buttons Buka Borang (new tab), Salin pautan, Edit, Arkib / Nyaharkib, Padam. Deleted cards show when and by whom, with **Pulihkan**. Add/Edit dialog: title*, link*, description.
+- **Functions:** Add, edit, archive, unarchive, soft-delete **any** link; restore a deleted link (it returns to the tab it was deleted from).
+- **Data read:** `form_links` (every row, including soft-deleted); `profiles` for the "deleted by" name.
+- **Data written:** Insert / update `FormLink`; delete via `soft_delete_form_link()`.
+- **Rules:** See 5.7. Delete is a confirmation dialog; archive / unarchive / restore are one click.
+- **States:** Loading, per-tab list, empty, no search match, load error with retry.
 
 ### 3.C Staff Panel
 
@@ -273,7 +297,7 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 - **Purpose:** Central place to log all care for one elderly on the current day, item by item in real time.
 - **Access:** Staff (the elderly's assigned caregiver).
 - **UI:** Info banner (elderly name + recording staff name); guidance note ("press a button to record each item as it happens; each entry is auto-saved with the current time"); tab bar with **Rekod** and **Senarai Semak (Checklist)**.
-  - **Rekod tab:** four action buttons → Vital, Ubat, Makanan & Minuman, Laporan Aktiviti Harian; plus a timeline of the latest ~10 entries (vitals/medication/food) with timestamps.
+  - **Rekod tab:** four action buttons → Vital, Ubat, Makanan & Minuman, Laporan Aktiviti Harian; a second group **Jadual Pemantauan (Buku 3)** → Perkumuhan, Mood & Tingkah Laku, Penukaran Posisi, Skor Kesakitan, Risiko Jatuh (3.C.11); plus the record history.
   - **Senarai Semak tab:** the 8-item daily care checklist (interactive checkboxes), a progress indicator (X/8), and a "Catatan Khas" (special notes) textarea — auto-saved on change.
 - **Functions:** Navigate to each entry sub-page; tick checklist items; write special notes.
 - **Data read/written:** Today's `TrackerRecord` for this (elderly, staff, date); created if it doesn't exist yet. Updates `checklist`, `catatanKhas`.
@@ -325,6 +349,29 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 - **Rules:** Read-only unless the record is still within the 24h edit window or admin granted edit access.
 - **States:** Loading, loaded, not-found.
 
+#### 3.C.10 Borang (form links) — `/staf/borang`
+- **Purpose:** Same shared board as 3.B.10.
+- **Access:** Active staff.
+- **UI:** As 3.B.10, without the **Dipadam** tab. Edit / archive / delete buttons appear only on the staff member's own links; every other link can still be opened and copied.
+- **Functions:** Add links; edit, archive, unarchive and soft-delete **own** links.
+- **Data read:** `form_links` that are not deleted (active + archived).
+- **Data written:** Insert / update own `FormLink`; delete via `soft_delete_form_link()`.
+- **Rules:** See 5.7. A deleted link disappears for staff; only an admin can restore it.
+- **States:** Loading, per-tab list, empty, no search match, load error with retry.
+
+#### 3.C.11 Monitoring tables (Manual 3 / Buku 3, units 5–9) — `/staf/tracker/$parentId/{perkumuhan,tingkah-laku,posisi,kesakitan,risiko-jatuh}`
+- **Purpose:** Record the Manual 3 monitoring tables one entry at a time, like the vital / food forms.
+- **Access:** Staff.
+- **UI (all five):** back link, "Untuk: name", live timestamp, a collapsible **Panduan Buku 3** box with the unit's general instructions, the fields below, Batal / Simpan Rekod.
+  - **Perkumuhan:** type* (Air Kencing / Najis / Muntah); urine colour 1–8 (colour swatches) or Bristol type 1–7; times (1–20); condition (colour, texture, smell); notes. Shows the chart's reading (5.8).
+  - **Tingkah laku & emosi:** Mood, Interaksi, Tingkah Laku, Emosi — each a 1–5 scale with the manual's labels, clearable; notes. At least one score required.
+  - **Penukaran posisi:** position* (Baring Terlentang / Mengiring ke Kanan / Mengiring ke Kiri / Lain-lain + text), pre-selected from the Clock Turn Schedule for the current hour; purpose (quick picks); "redness / pressure-sore signs" checkbox; notes. Shows the last turn today and when the next is due (2 h later).
+  - **Skor kesakitan:** score* 0–10 with Wong-Baker faces on the even scores; where it hurts; notes.
+  - **Risiko jatuh:** the 8 risk factors as Ya/Tidak; fall incident since the last check (none / near fall / fall without injury / fall with injury); notes; the Morse Fall Scale disclaimer.
+- **Data written:** Append a `PerkumuhanEntry` / `TingkahLakuEntry` / `PosisiEntry` / `KesakitanEntry` / `RisikoJatuhEntry` (with `masa` = now, `pengesahan` = staff name) to today's tracker record (4.4).
+- **Rules:** Same 24h edit window as other entries (5.3). These entries do not change the record's overall status (that still comes from vitals).
+- **States:** Idle, validating, saving, saved.
+
 ### 3.D Anak (Family) Panel
 
 #### 3.D.1 Family home — `/anak`
@@ -343,17 +390,15 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 - **Rules:** Requires admin review before the elderly becomes an active managed profile and is assigned a caregiver (see 5.2).
 - **States:** Idle, submitting, submitted.
 
-#### 3.D.3 Service booking — `/anak/service`
-- **Purpose:** Book care services and manage existing bookings.
+#### 3.D.3 Servis (bookings) — `/anak/service`
+- **Purpose:** Follow the care-service bookings admin has made for this family.
 - **Access:** Anak.
-- **UI — two modes:**
-  - **History (default):** tabs Akan Datang (Upcoming) / Sedang Berlangsung (Ongoing) / Selesai (Completed) / Dibatalkan (Cancelled). Each booking card shows elderly name, service type, date/time, location, transport, status badge, and the assigned caregiver (avatar, name, specialization, rating, experience). Actions: view detail, cancel (if cancellable), reschedule (date/time pickers).
-  - **New booking form:** select elderly (from this user's registered elderly), service type (Companion vs Care), date & time, location, transport (Sendiri / Hantar / Pickup), notes. Submit creates the booking.
-- **Functions:** Create booking; view; cancel; reschedule; filter by status.
+- **UI:** Note that bookings are made by admin (contact admin to book, change or cancel); tabs Akan Datang (Upcoming) / Sedang Berlangsung (Ongoing) / Selesai (Completed) / Dibatalkan (Cancelled). Each booking card shows elderly name, service type, date/time, location, status badge and the assigned Temanion; the detail pop-up adds transport, payment and the Temanion card. **No booking form** — families cannot create bookings (issue #9).
+- **Functions:** View; filter by status.
 - **Data read:** `bookings` where `anakId = current user`; `service_types`; the staff users assigned to those bookings (`list_caregivers()`); this user's `parents`.
-- **Data written:** Create `Booking` (status `pending`); update (reschedule date/time) or cancel.
-- **Rules:** New bookings start `pending` (admin confirms & assigns caregiver — 3.B.9). A booking may be created without a registered elderly (`parentId` optional). Booking lifecycle in 5.4.
-- **States:** Loading, per-tab list, empty per tab, form idle/submitting.
+- **Data written:** None.
+- **Rules:** Only admin creates bookings (3.B.9); the database refuses a family insert. Booking lifecycle in 5.4.
+- **States:** Loading, per-tab list, empty per tab.
 
 #### 3.D.4 Progress list — `/anak/perkembangan`
 - **Purpose:** Choose which elderly's progress to view.
@@ -372,6 +417,7 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
     - **Vital signs:** entries by time with temperature, BP, pulse, breathing, blood sugar, O₂, and per-vital status badge (Normal/Amaran/Bahaya).
     - **Medication:** medicines given by time of day, with dose, route, and confirming staff.
     - **Food & drink:** meals by time with food/drink type, quantity, liquid volume, notes.
+    - **Jadual pemantauan (Manual 3):** perkumuhan, tingkah laku & emosi, penukaran posisi, skor kesakitan and risiko jatuh entries, each with its reading and the confirming Temanion.
     - **Activity report:** the day's activity text + confirming staff.
     - **Checklist:** the 8-item checklist with done/not-done indicators.
     - **Photos:** activity-photo thumbnails.
@@ -381,12 +427,12 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 - **Rules:** Read-only. A family member may only view elderly linked to them.
 - **States:** Loading, populated, empty (no records / none in range), not-authorized.
 
-#### 3.D.6 Information library — `/anak/informasi`
-- **Purpose:** Browse educational articles and videos.
+#### 3.D.6 Buku Caregiver (information library) — `/anak/informasi`
+- **Purpose:** Read the caregiver books: articles, videos and the monitoring manual.
 - **Access:** Anak.
-- **UI:** Search bar; topic filter buttons (All + the four topics); dynamic subtopic filter; tabs for Articles vs Videos; content cards (cover image, title, topic/subtopic badges, view count).
-- **Functions:** Search; filter by topic/subtopic; open an item.
-- **Data read:** `articles` and `videos` where `visibility = published`; taxonomy (4.7).
+- **UI:** Search bar; topic filter buttons (All + the four topics) and dynamic subtopic filter (hidden on Buku 3); tabs **Buku 1** (articles), **Buku 2** (videos), **Buku 3** (*Jadual Pemantauan Pesakit oleh Caregiver*). Buku 3 is the Manual 3 text as collapsible sections — role of the manual, target users, patient profile, usage guide, and units 1–9 with their general instructions and reference charts (vital-sign table, dose times, Bristol chart, urine colours, behaviour indicators, clock-turn schedule, pain scale, fall-risk factors).
+- **Functions:** Search (also within Buku 3); filter by topic/subtopic; open an item.
+- **Data read:** `articles` and `videos` where `visibility = published`; taxonomy (4.7). Buku 3 content is built into the app (`src/lib/buku3.ts`).
 - **States:** Loading, grid, empty, no-results.
 
 #### 3.D.7 Article/video detail — `/anak/informasi/$id`
@@ -416,6 +462,10 @@ A login account for any role.
 | phone | Contact number (optional) |
 | avatar | Profile photo (optional) |
 | specialization, experienceYears, rating, notes | Caregiver details for `staff` users (optional, admin-managed) — see 4.5 |
+| tahunLahir | Birth year — entered as age (16–100), so the age stays current (optional, admin-managed) |
+| jantina, bangsa, warganegara | Gender (`L`/`P`), race, nationality (optional, admin-managed) |
+| lokasi, alamat | Location from the fixed list (4.8) and street address (optional, admin-managed) |
+| kemahiran[] | Skills list, at most 30 (optional, admin-managed) |
 
 ### 4.2 Parent (Warga Emas / Elderly)
 The elderly person under care.
@@ -441,6 +491,8 @@ The elderly person under care.
 | statusMobiliti | Mobility status (optional) |
 | statusKognitif | Cognitive status (optional) |
 | sekatanPemakanan | Dietary restrictions (optional) |
+| lokasi | Location from the fixed list (4.8), for the admin filter (optional) |
+| archivedAt | Set when archived (hidden from active lists, history kept) |
 
 **Relationships:** A Parent is cared for by one staff (`staffId`) and linked to one or more anak (`anakIds`). Has many `Medication`, `TrackerRecord`, `Booking`.
 
@@ -469,6 +521,7 @@ One record per (elderly, staff, day). Holds all care logged that day.
 | vitalEntries[] | Vital-sign readings (see below) |
 | ubatanEntries[] | Medication giving events (see below) |
 | makananEntries[] | Food/drink intake events (see below) |
+| perkumuhanEntries[], tingkahLakuEntries[], posisiEntries[], kesakitanEntries[], risikoJatuhEntries[] | Manual 3 monitoring entries (see below) |
 | aktiviti | Daily activity report text |
 | aktivitiPengesahan | Staff who confirmed the report |
 | gambar[] | Activity photos — paths in the private `activity-photos` bucket, shown via short-lived signed links; only admin, the assigned staff and linked anak can open them |
@@ -484,6 +537,14 @@ One record per (elderly, staff, day). Holds all care logged that day.
 
 **MakananEntry:** `masa`, `jenisMakanan?`, `jenisMinum?`, `kuantiti?`, `cecairMl?`, `catatan?`, `pengesahan`.
 
+**Manual 3 entries** (all have `masa`, `catatan?`, `pengesahan`):
+
+- **PerkumuhanEntry:** `jenis` (`kencing` \| `najis` \| `muntah`), `kekerapan?` (1–20), `warnaUrin?` (1–8, urine only), `bristol?` (1–7, stool only), `keadaan?`.
+- **TingkahLakuEntry:** `mood?`, `interaksi?`, `tingkahLaku?`, `emosi?` — each 1–5.
+- **PosisiEntry:** `posisi` (`terlentang` \| `sisiKanan` \| `sisiKiri` \| `lain`), `posisiLain?`, `tujuan?`, `tandaLukaTekanan?`.
+- **KesakitanEntry:** `skor` (0–10), `lokasi?`.
+- **RisikoJatuhEntry:** `faktor[]` (the factors answered "Ya"), `kejadian?` (`tiada` \| `hampirJatuh` \| `jatuhTanpaKecederaan` \| `jatuhDenganKecederaan`).
+
 ### 4.5 Caregiver
 Not a separate entity: every **User with role `staff`** is a caregiver and can be assigned to a booking (shown to the family). The card uses these User fields:
 | Field | Meaning |
@@ -496,11 +557,11 @@ Not a separate entity: every **User with role `staff`** is a caregiver and can b
 | notes | Optional |
 
 ### 4.6 Booking
-A care service booked by a family member.
+A care service booked by admin on behalf of a family (penempah servis).
 | Field | Meaning |
 |-------|---------|
 | id | Identifier |
-| anakId | Family member who booked |
+| anakId | Family account the booking is for (the booker) — must be linked to the care recipient when admin books |
 | parentId | Elderly (optional — may book without a registered elderly) |
 | serviceTypeId | Service type (→ ServiceType, 4.8) |
 | date / time | Scheduled date (yyyy-mm-dd) and time (HH:mm) |
@@ -512,6 +573,7 @@ A care service booked by a family member.
 | caregiverId | Assigned caregiver — a `staff` User (set by admin) |
 | price | RM (set by admin) |
 | paymentStatus | `belum_bayar` \| `deposit` \| `telah_bayar` |
+| confirmedAt | When the booking was first approved (set by the database; older bookings use their creation time) |
 
 ### 4.7 Article & Video (content)
 | Field (Article) | Meaning |
@@ -527,6 +589,17 @@ A care service booked by a family member.
 | createdAt | Creation date |
 
 `Video` is similar but `url` is the primary YouTube embed, `description` replaces body, and PDF is optional supporting material.
+
+### 4.9 FormLink (Borang board)
+| Field | Meaning |
+|-------|---------|
+| id, title | Identity; title 1–120 characters |
+| url | Normalised `https://` link that passed the link filter (5.7) |
+| description | Optional, up to 500 characters |
+| createdBy / createdByName | Author's user id, and their name when the link was posted (set by the database) |
+| createdAt | Creation timestamp |
+| archivedAt | Set → archived (hidden from Aktif); cleared on unarchive |
+| deletedAt / deletedBy | Set → soft-deleted (visible to admin only); cleared on restore |
 
 ### 4.8 Reference value lists (enums) & business thresholds
 
@@ -545,6 +618,10 @@ A care service booked by a family member.
 **Meal time slots (`WAKTU_MAKANAN`):** Sarapan Pagi · Snek Pagi/Brunch · Makan Tengah Hari · Minum Petang · Makan Malam · Snek Malam.
 
 **Administration routes (`CARA_PENGAMBILAN`):** Oral/Mulut · Suntikan · Topikal/Sapu · Titisan · Sedutan/Inhaler · Lain-lain.
+
+**Locations (`LOKASI`, for Temanion and Penerima Servis):** Klang · Perak · Johor first, then Kedah · Kelantan · Kuala Lumpur · Labuan · Melaka · Negeri Sembilan · Pahang · Perlis · Pulau Pinang · Putrajaya · Sabah · Sarawak · Selangor · Terengganu.
+
+**Manual 3 scales (`src/lib/pemantauan.ts`):** Bristol stool types 1–7; urine colour 1–8; behaviour scales 1–5 (Mood: Sangat Ceria → Sangat Murung; Interaksi: Sangat Responsif → Sangat Pasif; Tingkah Laku: Tenang → Agresif Fizikal; Emosi: Sangat Tenang → Sangat Resah / Suka Tidur); positions Baring Terlentang (Recumbent) · Mengiring ke Kanan (Right Lateral) · Mengiring ke Kiri (Left Lateral) · Lain-lain; pain score 0–10 (Wong-Baker faces at 0, 2, 4, 6, 8, 10); 8 fall-risk factors. Interpretation rules in 5.8.
 
 **Per-vital-sign status thresholds** (each vital shows its own Normal/Amaran/Bahaya — real business rules):
 | Vital | Normal | Amaran | Bahaya |
@@ -584,11 +661,11 @@ A care service booked by a family member.
 - **Edit window:** records stay editable by staff for **24 hours** (`EDIT_WINDOW_MS`) so staff can add later time-slots. After 24h, editing requires an admin to grant access (`editAllowed`). Logic: `canStaffEdit = within 24h OR editAllowed` (`canStaffEdit`).
 
 ### 5.4 Booking lifecycle
-1. Family creates a booking → `pending`.
-2. Admin reviews in `/admin/servis`, assigns a caregiver, sets price & payment status, and **confirms** → `confirmed`.
+1. The family contacts admin; **admin creates the booking** in `/admin/servis` for a family account linked to the care recipient → `confirmed` (default) or `pending`. Families cannot create bookings (the database refuses it).
+2. For a `pending` booking, admin assigns a Temanion, sets price & payment status, and **confirms** → `confirmed`. The first approval time is recorded (`confirmedAt`).
 3. Service starts → `ongoing`; finishes → `completed`.
-4. Family or admin may **cancel** before completion → `cancelled`.
-5. Family sees the assigned caregiver and can reschedule (date/time) where allowed.
+4. Admin may **cancel** before the service starts → `cancelled` (families ask admin).
+5. The family sees the booking and the assigned Temanion on their Servis page.
 
 ### 5.5 Content visibility
 - Articles and videos have `published` / `draft` visibility.
@@ -599,6 +676,24 @@ A care service booked by a family member.
 - Staff see only elderly assigned to them (`staffId`) and their own records.
 - Family see only elderly linked to them (`anakIds`), their own bookings, and published content.
 - Admin sees everything.
+
+### 5.7 Borang links
+- **Who:** Admin and active staff share one board; family accounts have no access. Staff manage their own links; admin manages all links.
+- **Link filter:** Only page links are accepted. A link is refused when it is not `https://`; contains a username/password; points at `localhost`, an IP address or a host without a domain; looks like an API (a host label or path segment such as `api`, `api2`, `graphql`, `rest`, `rpc`, `webhook(s)`, `hooks`, `wp-json`, or an API-only domain such as `googleapis.com`, `supabase.co`, `cloudfunctions.net`, AWS `execute-api`); ends in `.json` / `.xml` / `.yaml` / `.graphql`; or carries an access key in the query (`key`, `api_key`, `token`, `access_token`, `secret`, `password`, `sig`, `signature`, …). A link pasted without a scheme (e.g. `forms.gle/abc`) gets `https://` added. The app checks first (`checkFormLink`) and the database repeats the check on every new or changed link.
+- **Archive:** Hides a link from **Aktif**; unarchive brings it back. Nothing is lost.
+- **Delete (soft):** A deleted link is never removed from the database. Staff no longer see it; admins see it under **Dipadam** and can restore it. No one can permanently delete a link through the app or API.
+
+### 5.8 Monitoring table readings (Manual 3)
+
+Each entry shows its own reading; none of them changes the record's overall status.
+
+- **Urine colour:** 1–3 hidrasi optimum (Normal) · 4–6 hampir dehidrasi (Amaran) · 7–8 dehidrasi (Bahaya).
+- **Bristol stool type:** 1–2 sembelit (Amaran) · 3–4 normal · 5–7 cirit-birit (Amaran). Any vomiting is Amaran.
+- **Behaviour & emotion:** score 1–3 Normal · 4 Amaran · 5 Bahaya, per aspect.
+- **Position change:** turn at least every 2 hours; the form pre-selects the Clock Turn Schedule position for the hour (12–2 Recumbent, 2–4 Right Lateral, 4–6 Recumbent, 6–8 Left Lateral, 8–10 Recumbent, 10–12 Right Lateral, repeating a.m./p.m.); a pressure-sore sign is shown as Amaran.
+- **Pain score:** 0–3 Normal · 4–6 Amaran · 7–10 Bahaya; labels follow Wong-Baker (an odd score takes the next face up).
+- **Fall risk:** any fall → Bahaya; a near fall or at least one risk factor → Amaran; otherwise Normal. This is home guidance, not a Morse Fall Scale assessment.
+- **Time-of-day row** for display: 05:00–11:59 Pagi · 12:00–13:59 Tengah Hari · 14:00–18:59 Petang · otherwise Malam.
 
 ---
 
@@ -634,6 +729,7 @@ A care service booked by a family member.
 | `/admin/artikel` | `admin.artikel.tsx` |
 | `/admin/video` | `admin.video.tsx` |
 | `/admin/servis` | `admin.servis.tsx` |
+| `/admin/borang` | `admin.borang.tsx` |
 | `/staf` | `staf.index.tsx` (+ `staf.tsx` layout/guard) |
 | `/staf/warga-emas` | `staf.warga-emas.tsx` |
 | `/staf/rekod` | `staf.rekod.tsx` |
@@ -643,6 +739,7 @@ A care service booked by a family member.
 | `/staf/tracker/$parentId/makanan` | `staf.tracker.$parentId.makanan.tsx` |
 | `/staf/tracker/$parentId/aktiviti` | `staf.tracker.$parentId.aktiviti.tsx` |
 | `/staf/tracker/$parentId/sejarah/$recordId` | `staf.tracker.$parentId.sejarah.$recordId.tsx` |
+| `/staf/borang` | `staf.borang.tsx` |
 | `/anak` | `anak.index.tsx` (+ `anak.tsx` layout/guard) |
 | `/anak/daftar-warga` | `anak.daftar-warga.tsx` |
 | `/anak/service` | `anak.service.tsx` |
@@ -661,6 +758,7 @@ A care service booked by a family member.
 - `topic-subtopic-fields.tsx` — taxonomy selector for content forms.
 - `page-transition.tsx` — page/list entry animations.
 - `now-stamp.tsx` — current date/time stamp on entry forms.
+- `borang-page.tsx` — the Borang board, shared by `/admin/borang` and `/staf/borang`.
 
 ### 7.3 Demo credentials (mockup only — to be removed in production)
 | Role | Email | Password |
@@ -674,3 +772,4 @@ A care service booked by a family member.
 - `src/lib/auth-store.ts` — current auth flow and roles.
 - `src/lib/tracker-actions.ts` — tracker mutation helpers.
 - `src/lib/taxonomy-store.ts` — runtime-mutable content taxonomy.
+- `src/lib/form-links.ts` — Borang link filter and write helpers.

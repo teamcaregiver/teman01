@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { Parent } from "@/lib/mock-data";
-import { format, differenceInYears } from "date-fns";
+import { GenderAvatar } from "@/components/gender-avatar";
+import { differenceInYears } from "date-fns";
 import { Info } from "lucide-react";
 
 function ageFromBirth(birthDate?: string): string {
@@ -20,8 +21,10 @@ function ageFromBirth(birthDate?: string): string {
   return `${differenceInYears(new Date(), d)} tahun`;
 }
 
-// Reusable "Info" button that opens a modal with the elderly person's complete
-// profile. Keeps the main staff pages clean — full details live behind a tap.
+// Reusable "Info" button that opens a modal with the elderly person's care
+// profile. Keeps the main staff pages clean — details live behind a tap.
+// Staff-only: IC, birth date, blood type, insurance number and dietary
+// restrictions are left out on purpose (admin sees them on the resident page).
 export function ElderlyInfoDialog({
   parent,
   trigger,
@@ -49,19 +52,13 @@ export function ElderlyInfoDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl gradient-sage font-display font-bold text-sage-foreground">
-              {parent.fullName
-                .split(" ")
-                .slice(0, 2)
-                .map((n) => n[0])
-                .join("")}
-            </div>
+            <GenderAvatar gender={parent.gender} />
             <div className="min-w-0">
               <DialogTitle className="font-display">
                 {parent.fullName}
               </DialogTitle>
               <DialogDescription>
-                {parent.ic} · {parent.gender === "L" ? "Lelaki" : "Perempuan"}
+                {parent.gender === "L" ? "Lelaki" : "Perempuan"}
                 {parent.relationship ? ` · ${parent.relationship}` : ""}
               </DialogDescription>
             </div>
@@ -71,17 +68,8 @@ export function ElderlyInfoDialog({
         <div className="space-y-4">
           {/* Personal */}
           <Section title="Maklumat Peribadi">
-            <Item
-              label="Tarikh Lahir"
-              value={
-                parent.birthDate
-                  ? format(new Date(parent.birthDate), "dd MMM yyyy")
-                  : undefined
-              }
-            />
             <Item label="Umur" value={ageFromBirth(parent.birthDate)} />
             <Item label="No. Telefon" value={parent.phone} />
-            <Item label="Jenis Darah" value={parent.jenisDarah} />
             <Item label="Status Mobiliti" value={parent.statusMobiliti} />
             <Item label="Status Kognitif" value={parent.statusKognitif} />
             <div className="col-span-2">
@@ -97,14 +85,14 @@ export function ElderlyInfoDialog({
             <div className="col-span-2">
               <Item label="Senarai Ubat" value={parent.medication} />
             </div>
-            <Item label="Alahan" value={parent.alahan} />
-            <Item label="Sekatan Pemakanan" value={parent.sekatanPemakanan} />
+            <div className="col-span-2">
+              <Item label="Alahan" value={parent.alahan} />
+            </div>
             <Item label="Doktor" value={parent.namaDoktor} />
             <Item label="Tel Doktor" value={parent.telDoktor} />
             <div className="col-span-2">
               <Item label="Hospital Rujukan" value={parent.hospitalRujukan} />
             </div>
-            <Item label="No. Insurans" value={parent.noInsurans} />
           </Section>
 
           {/* Emergency */}

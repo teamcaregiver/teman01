@@ -103,7 +103,7 @@ function Perkembangan() {
 
       {rows.length === 0 ? (
         <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
-          Belum ada rekod penjagaan. Data akan muncul di sini sebaik staf
+          Belum ada rekod penjagaan. Data akan muncul di sini sebaik Temanion
           merekod.
         </Card>
       ) : (

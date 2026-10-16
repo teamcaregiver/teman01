@@ -18,6 +18,7 @@ import {
   Video,
   Activity,
   ClipboardList,
+  ClipboardPen,
   LogOut,
   LayoutDashboard,
   HeartHandshake,
@@ -34,20 +35,23 @@ const initialsOf = (name?: string) =>
     .map((n) => n[0]?.toUpperCase())
     .join("");
 
+// Day-to-day operations first; education content (Artikel, Video) last.
 const adminNav = [
   { title: "Ringkasan", url: "/admin", icon: LayoutDashboard, exact: true },
-  { title: "Pengurusan Staf", url: "/admin/staff", icon: Users },
-  { title: "Warga Emas", url: "/admin/warga-emas", icon: Heart },
-  { title: "Artikel", url: "/admin/artikel", icon: BookOpen },
-  { title: "Video", url: "/admin/video", icon: Video },
+  { title: "Pengurusan Temanion", url: "/admin/staff", icon: Users },
+  { title: "Penerima Servis", url: "/admin/warga-emas", icon: Heart },
   { title: "Rekod Harian", url: "/admin/tracker", icon: Activity },
   { title: "Servis Monitoring", url: "/admin/servis", icon: HeartHandshake },
+  { title: "Borang", url: "/admin/borang", icon: ClipboardPen },
+  { title: "Artikel", url: "/admin/artikel", icon: BookOpen },
+  { title: "Video", url: "/admin/video", icon: Video },
 ];
 
 const staffNav = [
-  { title: "Ringkasan", url: "/staf", icon: LayoutDashboard, exact: true },
-  { title: "Warga Emas Saya", url: "/staf/warga-emas", icon: Heart },
+  { title: "Rekod Servis", url: "/staf", icon: LayoutDashboard, exact: true },
+  { title: "Penerima Servis", url: "/staf/warga-emas", icon: Heart },
   { title: "Rekod Saya", url: "/staf/rekod", icon: ClipboardList },
+  { title: "Borang", url: "/staf/borang", icon: ClipboardPen },
 ];
 
 export function AppSidebar({ variant }: { variant: "admin" | "staff" }) {
@@ -70,7 +74,7 @@ export function AppSidebar({ variant }: { variant: "admin" | "staff" }) {
               CareSenior
             </p>
             <p className="truncate text-xs text-muted-foreground capitalize">
-              {variant === "admin" ? "Admin" : "Staf"}
+              {variant === "admin" ? "Admin" : "Temanion"}
             </p>
           </div>
         </div>

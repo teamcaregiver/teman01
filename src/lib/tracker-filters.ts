@@ -8,7 +8,13 @@ export type TrackerCategory =
   | "ubat"
   | "makan"
   | "checklist"
-  | "laporan";
+  | "laporan"
+  // Manual 3 monitoring tables
+  | "perkumuhan"
+  | "tingkahLaku"
+  | "posisi"
+  | "kesakitan"
+  | "risikoJatuh";
 
 export const TRACKER_CATEGORIES: { key: TrackerCategory; label: string }[] = [
   { key: "all", label: "Semua kategori" },
@@ -17,6 +23,11 @@ export const TRACKER_CATEGORIES: { key: TrackerCategory; label: string }[] = [
   { key: "makan", label: "Makanan" },
   { key: "checklist", label: "Senarai Semak" },
   { key: "laporan", label: "Laporan Harian" },
+  { key: "perkumuhan", label: "Perkumuhan" },
+  { key: "tingkahLaku", label: "Tingkah Laku & Emosi" },
+  { key: "posisi", label: "Penukaran Posisi" },
+  { key: "kesakitan", label: "Skor Kesakitan" },
+  { key: "risikoJatuh", label: "Risiko Jatuh" },
 ];
 
 export interface TrackerSearch {

@@ -28,6 +28,9 @@ export const qk = {
   bookings: ["bookings"] as const,
   articles: ["articles"] as const,
   videos: ["videos"] as const,
+  formLinks: ["formLinks"] as const,
+  myServices: ["myServices"] as const,
+  checklists: ["checklists"] as const,
 };
 
 export function useUsers() {
@@ -106,6 +109,26 @@ export function useArchivedParentsQuery() {
     queryKey: [...qk.parents, "archived"],
     queryFn: db.fetchArchivedParents,
     staleTime: STALE,
+  });
+}
+
+/** Borang links (all states the caller may see) as a full query object. */
+export function useFormLinksQuery() {
+  return useQuery({ queryKey: qk.formLinks, queryFn: db.fetchFormLinks, staleTime: STALE });
+}
+
+/** Open services assigned to the logged-in staff (Rekod Servis). */
+export function useMyServicesQuery() {
+  return useQuery({ queryKey: qk.myServices, queryFn: db.fetchMyServices, staleTime: STALE });
+}
+
+/** A resident's own checklist items; `data` is null while they use the default list. */
+export function useParentChecklistQuery(parentId: string) {
+  return useQuery({
+    queryKey: [...qk.checklists, parentId],
+    queryFn: () => db.fetchParentChecklist(parentId),
+    staleTime: STALE,
+    enabled: !!parentId,
   });
 }
 

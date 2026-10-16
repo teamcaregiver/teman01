@@ -5,6 +5,7 @@ import { useParents } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { ElderlyInfoDialog } from "@/components/elderly-info-dialog";
+import { GenderAvatar } from "@/components/gender-avatar";
 import { ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/staf/warga-emas")({
@@ -18,9 +19,9 @@ function AssignedParents() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-display text-2xl font-bold">Warga Emas Saya</h1>
+        <h1 className="font-display text-2xl font-bold">Penerima Servis</h1>
         <p className="text-sm text-muted-foreground">
-          Warga emas yang ditugaskan kepada anda.
+          Penerima servis yang ditugaskan kepada anda.
         </p>
       </div>
       <StaggerList>
@@ -29,13 +30,7 @@ function AssignedParents() {
             <StaggerItem key={p.id}>
               <Card className="hover-lift border-border/60 p-5">
                 <div className="flex items-start gap-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl gradient-sage font-display font-bold text-sage-foreground">
-                    {p.fullName
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((n) => n[0])
-                      .join("")}
-                  </div>
+                  <GenderAvatar gender={p.gender} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display font-semibold">
                       {p.fullName}

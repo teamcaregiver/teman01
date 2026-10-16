@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookingStatusPill } from "@/components/booking-status-pill";
+import { TempahanBaruDialog } from "@/components/tempahan-baru-dialog";
+import { matchesSearch } from "@/lib/search";
 import {
   TRANSPORT_MODES,
   BOOKING_STATUS_LABEL,
@@ -56,6 +58,8 @@ import {
   FileText,
   MapPin,
   PlayCircle,
+  Plus,
+  Search,
   UserCog,
   XCircle,
 } from "lucide-react";
@@ -75,6 +79,8 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "cancelled", label: "Dibatalkan" },
 ];
 
+const TABLE_COLS = 7;
+
 function ServiceMonitoring() {
   const bookingsQ = useBookingsQuery();
   const bookings = bookingsQ.data ?? [];
@@ -84,6 +90,8 @@ function ServiceMonitoring() {
   const getServiceType = useGetServiceType();
   const invalidate = useInvalidate();
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [q, setQ] = useState("");
+  const [creating, setCreating] = useState(false);
   // Track the id, not a snapshot: after any mutation the dialog re-reads the
   // refreshed row from the list instead of being patched by hand.
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -94,17 +102,32 @@ function ServiceMonitoring() {
       +new Date(`${b.date}T${b.time}`) - +new Date(`${a.date}T${a.time}`),
   );
 
+  // Search covers what the table shows, plus the booker (no longer a column).
+  const matching = sorted.filter((b) =>
+    matchesSearch(
+      [
+        parents.find((x) => x.id === b.parentId)?.fullName,
+        users.find((u) => u.id === b.anakId)?.name,
+        getServiceType(b.serviceTypeId)?.name,
+        b.location,
+        getCaregiver(b.caregiverId)?.name,
+      ],
+      q,
+    ),
+  );
+
   const counts: Record<FilterKey, number> = {
-    all: bookings.length,
+    all: matching.length,
     pending: 0,
     confirmed: 0,
     ongoing: 0,
     completed: 0,
     cancelled: 0,
   };
-  bookings.forEach((b) => (counts[b.status] += 1));
+  matching.forEach((b) => (counts[b.status] += 1));
 
-  const rows = sorted.filter((b) => filter === "all" || b.status === filter);
+  const rows = matching.filter((b) => filter === "all" || b.status === filter);
+  const searching = q.trim().length > 0;
 
   const setStatus = async (b: Booking, status: BookingStatus) => {
     const { error } = await supabase.from("bookings").update({ status }).eq("id", b.id);
@@ -120,7 +143,20 @@ function ServiceMonitoring() {
       .eq("id", b.id);
     if (error) return toast.error(error.message);
     invalidate(qk.bookings);
-    toast.success(caregiverId ? "Caregiver ditetapkan" : "Caregiver dikeluarkan");
+    toast.success(caregiverId ? "Temanion ditetapkan" : "Temanion dikeluarkan");
+  };
+
+  /** Link the booking to a registered care recipient (shown to the Temanion by name). */
+  const linkParent = async (b: Booking, parentId: string) => {
+    const { error } = await supabase
+      .from("bookings")
+      .update({ parent_id: parentId || null })
+      .eq("id", b.id);
+    if (error) return toast.error(error.message);
+    invalidate(qk.bookings);
+    toast.success(
+      parentId ? "Penerima servis dipautkan ke tempahan" : "Pautan penerima servis dikeluarkan",
+    );
   };
 
   /** Admin-only pricing. The DB trigger in migration 0008 enforces the same rule. */
@@ -142,12 +178,28 @@ function ServiceMonitoring() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Servis Monitoring</h1>
-        <p className="text-sm text-muted-foreground">
-          Pantau tempahan servis & urus status penjagaan seperti penjejakan
-          pesanan.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Servis Monitoring</h1>
+          <p className="text-sm text-muted-foreground">
+            Pantau tempahan servis & urus status penjagaan seperti penjejakan
+            pesanan.
+          </p>
+        </div>
+        <Button onClick={() => setCreating(true)}>
+          <Plus className="mr-1 h-4 w-4" /> Tambah Tempahan
+        </Button>
+      </div>
+
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Cari penerima servis, servis, lokasi atau Temanion..."
+          aria-label="Cari tempahan"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
       </div>
 
       {/* Status filters */}
@@ -175,11 +227,10 @@ function ServiceMonitoring() {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Tarikh & Masa</TableHead>
-              <TableHead>Pelanggan (Anak)</TableHead>
-              <TableHead>Warga Emas</TableHead>
+              <TableHead>Penerima Servis</TableHead>
               <TableHead>Servis</TableHead>
               <TableHead>Lokasi</TableHead>
-              <TableHead>Caregiver</TableHead>
+              <TableHead>Temanion</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Tindakan</TableHead>
             </TableRow>
@@ -188,7 +239,7 @@ function ServiceMonitoring() {
             {bookingsQ.isPending &&
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={`s${i}`} className="hover:bg-transparent">
-                  <TableCell colSpan={8}>
+                  <TableCell colSpan={TABLE_COLS}>
                     <Skeleton className="h-9 w-full" />
                   </TableCell>
                 </TableRow>
@@ -196,7 +247,7 @@ function ServiceMonitoring() {
 
             {bookingsQ.isError && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-10 text-center">
+                <TableCell colSpan={TABLE_COLS} className="py-10 text-center">
                   <p className="text-sm font-medium">Gagal memuatkan tempahan</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {(bookingsQ.error as Error).message}
@@ -215,20 +266,25 @@ function ServiceMonitoring() {
 
             {!bookingsQ.isPending && !bookingsQ.isError && rows.length === 0 && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="py-10 text-center">
+                <TableCell colSpan={TABLE_COLS} className="py-10 text-center">
                   <p className="text-sm font-medium">
-                    {filter === "all" ? "Tiada tempahan servis" : "Tiada tempahan dalam status ini"}
+                    {searching
+                      ? "Tiada tempahan sepadan"
+                      : filter === "all"
+                        ? "Tiada tempahan servis"
+                        : "Tiada tempahan dalam status ini"}
                   </p>
                   <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-                    {filter === "all"
-                      ? "Tempahan yang dihantar oleh anak akan dipaparkan di sini."
-                      : "Cuba pilih tab status yang lain."}
+                    {searching
+                      ? "Cuba kata kunci lain atau pilih tab status yang lain."
+                      : filter === "all"
+                        ? "Tekan Tambah Tempahan untuk membuat tempahan bagi pihak keluarga."
+                        : "Cuba pilih tab status yang lain."}
                   </p>
                 </TableCell>
               </TableRow>
             )}
             {rows.map((b) => {
-              const anak = users.find((u) => u.id === b.anakId);
               const p = b.parentId
                 ? parents.find((x) => x.id === b.parentId)
                 : undefined;
@@ -239,7 +295,7 @@ function ServiceMonitoring() {
                 <TableRow
                   key={b.id}
                   tabIndex={0}
-                  aria-label={`Lihat tempahan ${svc?.name ?? "servis"} — ${anak?.name ?? "pelanggan"} pada ${when}`}
+                  aria-label={`Lihat tempahan ${svc?.name ?? "servis"} — ${p?.fullName ?? "penerima servis"} pada ${when}`}
                   className="cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
                   onClick={(e) => {
                     // Let controls inside the row keep their own behaviour.
@@ -260,9 +316,6 @@ function ServiceMonitoring() {
                     {when}
                   </TableCell>
                   <TableCell className="font-medium">
-                    {anak?.name ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-sm">
                     {p?.fullName ?? "—"}
                   </TableCell>
                   <TableCell className="text-sm">{svc?.name}</TableCell>
@@ -298,6 +351,8 @@ function ServiceMonitoring() {
         </div>
       </Card>
 
+      <TempahanBaruDialog open={creating} onOpenChange={setCreating} />
+
       {/* Detail pop-up */}
       <Dialog
         open={!!selectedId}
@@ -311,6 +366,7 @@ function ServiceMonitoring() {
               booking={selected}
               onSetStatus={setStatus}
               onAssignCaregiver={assignCaregiver}
+              onLinkParent={linkParent}
               onSavePayment={savePayment}
             />
           ) : (
@@ -331,11 +387,13 @@ function ServiceDetail({
   booking: b,
   onSetStatus,
   onAssignCaregiver,
+  onLinkParent,
   onSavePayment,
 }: {
   booking: Booking;
   onSetStatus: (b: Booking, status: BookingStatus) => void;
   onAssignCaregiver: (b: Booking, caregiverId: string) => void;
+  onLinkParent: (b: Booking, parentId: string) => void;
   onSavePayment: (
     b: Booking,
     patch: { price: number | null; paymentStatus: PaymentStatus | null; paymentNotes: string },
@@ -356,6 +414,9 @@ function ServiceDetail({
   const assignable = caregivers.filter(
     (c) => c.status === "active" || c.id === b.caregiverId,
   );
+  // Only the booking family's own elderly can be linked.
+  const linkable = parents.filter((x) => x.anakIds.includes(b.anakId));
+  const linkedHidden = !!b.parentId && !linkable.some((x) => x.id === b.parentId);
 
   return (
     <div className="space-y-5 pb-6">
@@ -419,13 +480,40 @@ function ServiceDetail({
         title="Butiran Tempahan"
       >
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Field label="Pelanggan (Anak)" value={anak?.name ?? "—"} />
+          <Field label="Penempah Servis" value={anak?.name ?? "—"} />
           <Field label="No. Telefon" value={anak?.phone ?? "—"} />
-          <Field
-            label="Warga Emas"
-            value={p?.fullName ?? "Tiada / belum berdaftar"}
-            full
-          />
+          <div className="col-span-2 space-y-1.5">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Penerima Servis
+            </p>
+            <Select
+              value={b.parentId ?? "none"}
+              onValueChange={(v) => onLinkParent(b, v === "none" ? "" : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih penerima servis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Tiada / belum berdaftar</SelectItem>
+                {linkable.map((x) => (
+                  <SelectItem key={x.id} value={x.id}>
+                    {x.fullName}
+                  </SelectItem>
+                ))}
+                {linkedHidden && (
+                  <SelectItem value={b.parentId!}>
+                    {p?.fullName ?? "Penerima servis diarkibkan"}
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {!b.parentId && (
+              <p className="text-[11px] text-status-attention">
+                Pautkan penerima servis supaya namanya dipaparkan kepada
+                Temanion yang ditugaskan.
+              </p>
+            )}
+          </div>
           <Field
             label="Tarikh & Masa"
             value={format(
@@ -435,7 +523,11 @@ function ServiceDetail({
             full
           />
           <Field label="Pengangkutan" value={trans?.label ?? "—"} />
-          <Field label="Dihantar Pada" value={format(new Date(b.createdAt), "dd MMM yyyy, HH:mm")} />
+          <Field label="Dicipta Pada" value={format(new Date(b.createdAt), "dd MMM yyyy, HH:mm")} />
+          <Field
+            label="Diluluskan Pada"
+            value={b.confirmedAt ? format(new Date(b.confirmedAt), "dd MMM yyyy, HH:mm") : "Belum diluluskan"}
+          />
           <Field
             label="Lokasi"
             value={b.location}
@@ -449,7 +541,7 @@ function ServiceDetail({
       {b.notes && (
         <Section
           icon={<ClipboardList className="h-3.5 w-3.5" />}
-          title="Catatan / Permintaan Pelanggan"
+          title="Catatan / Permintaan Penempah"
         >
           <p className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
             {b.notes}
@@ -460,10 +552,10 @@ function ServiceDetail({
       {/* Payment — admin sets the price, everyone else sees it read-only */}
       <PaymentSection booking={b} onSave={onSavePayment} />
 
-      {/* Caregiver assignment */}
+      {/* Temanion assignment */}
       <Section
         icon={<UserCog className="h-3.5 w-3.5" />}
-        title="Caregiver Ditugaskan"
+        title="Temanion Ditugaskan"
       >
         {cg && (
           <div className="mb-3 flex items-center gap-3 rounded-lg bg-muted/40 p-3">
@@ -482,16 +574,16 @@ function ServiceDetail({
           </div>
         )}
         <div className="space-y-1.5">
-          <Label className="text-xs">Tetapkan / Tukar Caregiver</Label>
+          <Label className="text-xs">Tetapkan / Tukar Temanion</Label>
           <Select
             value={b.caregiverId ?? "none"}
             onValueChange={(v) => onAssignCaregiver(b, v === "none" ? "" : v)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Pilih caregiver" />
+              <SelectValue placeholder="Pilih Temanion" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Tiada caregiver</SelectItem>
+              <SelectItem value="none">Tiada Temanion</SelectItem>
               {assignable.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -501,7 +593,7 @@ function ServiceDetail({
           </Select>
         </div>
 
-        {/* Rekod harian dibuka di halaman berasingan, hanya selepas caregiver
+        {/* Rekod harian dibuka di halaman berasingan, hanya selepas Temanion
             ditugaskan, supaya modal ini kekal ringkas. */}
         {cg && (
           <div className="mt-3 border-t border-border/60 pt-3">
@@ -515,7 +607,8 @@ function ServiceDetail({
             </Button>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               Lihat graf ringkasan & rekod penjagaan harian (vital, ubatan,
-              makanan, aktiviti) yang direkodkan oleh caregiver.
+              makanan, aktiviti dan jadual pemantauan) yang direkodkan oleh
+              Temanion.
             </p>
           </div>
         )}

@@ -15,7 +15,7 @@ import { AlertCircle, Trash2, Upload } from "lucide-react";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
-  staff: "Staf",
+  staff: "Temanion",
   anak: "Anak / Keluarga",
 };
 
@@ -302,7 +302,7 @@ export function ProfilePage() {
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Peranan hanya boleh ditukar oleh admin melalui Pengurusan Staf.
+              Peranan hanya boleh ditukar oleh admin melalui Pengurusan Temanion.
             </p>
           </div>
         </div>

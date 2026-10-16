@@ -12,8 +12,8 @@ export const anakNavItems = [
   { to: "/anak", label: "Utama", short: "Utama", icon: Home, exact: true },
   {
     to: "/anak/informasi",
-    label: "Manual Caregiver",
-    short: "Manual",
+    label: "Buku Caregiver",
+    short: "Buku",
     icon: BookOpen,
     exact: false,
   },

@@ -10,11 +10,23 @@ import {
   setChecklist,
   setCatatanKhas,
 } from "@/lib/tracker-actions";
-import { useParents, useTrackers, useInvalidate, qk } from "@/lib/data";
+import {
+  useParents,
+  useTrackers,
+  useInvalidate,
+  useParentChecklistQuery,
+  qk,
+} from "@/lib/data";
+import { mergeChecklist } from "@/lib/checklists";
+import type { ChecklistTemplateItem } from "@/lib/checklists";
 import { useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { ElderlyInfoDialog } from "@/components/elderly-info-dialog";
 import { StatusBadge } from "@/components/status-badge";
+import {
+  ChecklistEditorDialog,
+  ChecklistKindBadge,
+} from "@/components/checklist-editor";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import {
@@ -24,6 +36,12 @@ import {
   ClipboardList,
   Clock,
   ChevronRight,
+  Pencil,
+  Droplets,
+  Smile,
+  RotateCw,
+  Gauge,
+  TriangleAlert,
 } from "lucide-react";
 
 export const Route = createFileRoute("/staf/tracker/$parentId/")({
@@ -45,6 +63,15 @@ const ACTIONS = [
   },
 ] as const;
 
+// Manual 3 (Buku 3) monitoring tables, units 5–9.
+const PEMANTAUAN = [
+  { to: "/staf/tracker/$parentId/perkumuhan", label: "Perkumuhan", icon: Droplets },
+  { to: "/staf/tracker/$parentId/tingkah-laku", label: "Mood & Tingkah Laku", icon: Smile },
+  { to: "/staf/tracker/$parentId/posisi", label: "Penukaran Posisi", icon: RotateCw },
+  { to: "/staf/tracker/$parentId/kesakitan", label: "Skor Kesakitan", icon: Gauge },
+  { to: "/staf/tracker/$parentId/risiko-jatuh", label: "Risiko Jatuh", icon: TriangleAlert },
+] as const;
+
 function TrackerHome() {
   const { parentId } = useParams({ from: "/staf/tracker/$parentId/" });
   const { user } = useAuth();
@@ -56,20 +83,29 @@ function TrackerHome() {
 
   const today = pickTodayRecord(trackers, parentId, staffId);
 
+  // This resident's own checklist items, or the default list until edited.
+  const checklistQ = useParentChecklistQuery(parentId);
+  const template = checklistQ.data ?? DEFAULT_CHECKLIST;
+
   const [tab, setTab] = useState<"rekod" | "checklist">("rekod");
+  const [editingList, setEditingList] = useState(false);
   const [checklist, setLocalChecklist] = useState(() =>
-    today?.checklist?.length
-      ? today.checklist.map((c) => ({ ...c }))
-      : DEFAULT_CHECKLIST.map((c) => ({ ...c, done: false })),
+    mergeChecklist(template, today?.checklist),
   );
   const [catatan, setLocalCatatan] = useState(today?.catatanKhas ?? "");
 
   // Sync local checklist/catatan when today's record loads or changes identity.
   useEffect(() => {
-    if (today?.checklist?.length) setLocalChecklist(today.checklist.map((c) => ({ ...c })));
+    setLocalChecklist(mergeChecklist(template, today?.checklist));
     if (today?.catatanKhas != null) setLocalCatatan(today.catatanKhas);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today?.id]);
+
+  // The list itself changed (loaded or edited): keep the ticks already made.
+  useEffect(() => {
+    setLocalChecklist((prev) => mergeChecklist(template, prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checklistQ.data]);
 
   if (!parent)
     return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;
@@ -86,6 +122,20 @@ function TrackerHome() {
       c.id === id ? { ...c, done: !c.done } : c,
     );
     setLocalChecklist(next);
+    try {
+      await setChecklist(parentId, staffId, next);
+      invalidate(qk.trackers);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal menyimpan checklist");
+    }
+  };
+
+  // After the list is edited, today's saved ticks follow it right away, so a
+  // removed item no longer counts towards today's progress.
+  const onListSaved = async (items: ChecklistTemplateItem[]) => {
+    const next = mergeChecklist(items, checklist);
+    setLocalChecklist(next);
+    if (!today?.checklist?.length) return;
     try {
       await setChecklist(parentId, staffId, next);
       invalidate(qk.trackers);
@@ -183,6 +233,33 @@ function TrackerHome() {
           })}
         </div>
 
+        {/* ===== Manual 3 monitoring tables ===== */}
+        <div>
+          <h2 className="mb-2 font-display text-lg font-bold">
+            Jadual Pemantauan (Buku 3)
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+            {PEMANTAUAN.map((a) => {
+              const Icon = a.icon;
+              return (
+                <Link
+                  key={a.to}
+                  to={a.to}
+                  params={{ parentId }}
+                  className="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card p-4 text-center transition-colors hover:border-teal/50 hover:bg-teal/5"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-xl gradient-lavender text-lavender-foreground">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="text-sm font-semibold leading-tight">
+                    {a.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ===== History of records already entered ===== */}
         <div>
           <h2 className="mb-2 font-display text-lg font-bold">Sejarah Rekod</h2>
@@ -222,11 +299,27 @@ function TrackerHome() {
       {/* ===== CHECKLIST TAB ===== */}
       <div className={tab === "checklist" ? "space-y-5" : "hidden"}>
         <Card className="border-border/60 p-5">
-          <div className="mb-4">
-            <p className="font-display font-semibold">Senarai Semak</p>
-            <p className="text-xs text-muted-foreground">
-              {totalChecked}/{checklist.length} tugasan selesai
-            </p>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-display font-semibold">Senarai Semak</p>
+                {checklistQ.isSuccess && (
+                  <ChecklistKindBadge custom={!!checklistQ.data} />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {totalChecked}/{checklist.length} tugasan selesai
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingList(true)}
+              disabled={!checklistQ.isSuccess}
+            >
+              <Pencil className="mr-1 h-3.5 w-3.5" /> Urus Senarai
+            </Button>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {checklist.map((c) => (
@@ -247,6 +340,15 @@ function TrackerHome() {
             ))}
           </div>
         </Card>
+
+        <ChecklistEditorDialog
+          parentId={parentId}
+          parentName={parent.fullName}
+          items={template}
+          open={editingList}
+          onOpenChange={setEditingList}
+          onSaved={(items) => void onListSaved(items)}
+        />
 
         {/* ===== Catatan Khas / Special Remark ===== */}
         <Card className="border-border/60 p-5">

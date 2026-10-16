@@ -102,7 +102,7 @@ function readingSummary(t: TrackerRecord): string {
   const dia = v?.bpDiastolik ?? t.bpDiastolic;
   const gula = v?.gulaDarah ?? t.bloodSugar;
   const parts: string[] = [];
-  if (sys != null || dia != null) parts.push(`TD ${sys ?? "-"}/${dia ?? "-"}`);
+  if (sys != null || dia != null) parts.push(`Tekanan Darah ${sys ?? "-"}/${dia ?? "-"}`);
   if (gula != null) parts.push(`Gula ${gula}`);
   return parts.join(" · ");
 }
@@ -127,6 +127,10 @@ function AdminHome() {
 
   const parentsQ = useParentsQuery();
   const recordsQ = useTrackersQuery(range);
+  // The "Rekod Hari Ini" card always counts today, whatever the list filter
+  // shows. With the "Hari Ini" filter both use the same cached query.
+  const todayRange = useMemo(() => rangeFor("today", "", ""), []);
+  const todayQ = useTrackersQuery(todayRange);
   const bookingsQ = useOpenBookingsQuery();
 
   const parents = useMemo(() => parentsQ.data ?? [], [parentsQ.data]);
@@ -160,7 +164,7 @@ function AdminHome() {
           <StaggerItem>
             <StatCard
               tone="teal"
-              label="Warga Emas"
+              label="Klien"
               value={parentsQ.isPending ? "—" : parents.length}
               icon={<Heart className="h-4 w-4" />}
             />
@@ -168,7 +172,7 @@ function AdminHome() {
           <StaggerItem>
             <StatCard
               tone="sage"
-              label="Staf Aktif"
+              label="Temanion Aktif"
               value={users.filter((u) => u.role === "staff" && u.status === "active").length}
               icon={<Users className="h-4 w-4" />}
             />
@@ -176,9 +180,9 @@ function AdminHome() {
           <StaggerItem>
             <StatCard
               tone="peach"
-              label={filter === "today" ? "Rekod Hari Ini" : "Rekod Harian"}
-              value={recordsQ.isPending ? "—" : records.length}
-              hint={period}
+              label="Rekod Hari Ini"
+              value={todayQ.isPending ? "—" : (todayQ.data?.length ?? 0)}
+              hint={format(new Date(), "dd MMM yyyy")}
               icon={<Activity className="h-4 w-4" />}
             />
           </StaggerItem>
@@ -282,7 +286,7 @@ function AdminHome() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
-                          {p?.fullName ?? "Warga emas tidak dikenali"}
+                          {p?.fullName ?? "Penerima servis tidak dikenali"}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">{meta}</p>
                       </div>

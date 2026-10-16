@@ -21,6 +21,7 @@ import { Route as AnakIndexRouteImport } from './routes/anak.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StafWargaEmasRouteImport } from './routes/staf.warga-emas'
 import { Route as StafProfilRouteImport } from './routes/staf.profil'
+import { Route as StafBorangRouteImport } from './routes/staf.borang'
 import { Route as AnakServiceRouteImport } from './routes/anak.service'
 import { Route as AnakProfilRouteImport } from './routes/anak.profil'
 import { Route as AnakDaftarWargaRouteImport } from './routes/anak.daftar-warga'
@@ -29,6 +30,7 @@ import { Route as AdminTrackerRouteImport } from './routes/admin.tracker'
 import { Route as AdminStaffRouteImport } from './routes/admin.staff'
 import { Route as AdminServisRouteImport } from './routes/admin.servis'
 import { Route as AdminProfilRouteImport } from './routes/admin.profil'
+import { Route as AdminBorangRouteImport } from './routes/admin.borang'
 import { Route as StafRekodIndexRouteImport } from './routes/staf.rekod.index'
 import { Route as AnakPerkembanganIndexRouteImport } from './routes/anak.perkembangan.index'
 import { Route as AnakInformasiIndexRouteImport } from './routes/anak.informasi.index'
@@ -46,7 +48,12 @@ import { Route as AdminWargaEmasParentIdIndexRouteImport } from './routes/admin.
 import { Route as AdminArtikelArticleIdIndexRouteImport } from './routes/admin.artikel.$articleId.index'
 import { Route as StafTrackerParentIdVitalRouteImport } from './routes/staf.tracker.$parentId.vital'
 import { Route as StafTrackerParentIdUbatRouteImport } from './routes/staf.tracker.$parentId.ubat'
+import { Route as StafTrackerParentIdTingkahLakuRouteImport } from './routes/staf.tracker.$parentId.tingkah-laku'
+import { Route as StafTrackerParentIdRisikoJatuhRouteImport } from './routes/staf.tracker.$parentId.risiko-jatuh'
+import { Route as StafTrackerParentIdPosisiRouteImport } from './routes/staf.tracker.$parentId.posisi'
+import { Route as StafTrackerParentIdPerkumuhanRouteImport } from './routes/staf.tracker.$parentId.perkumuhan'
 import { Route as StafTrackerParentIdMakananRouteImport } from './routes/staf.tracker.$parentId.makanan'
+import { Route as StafTrackerParentIdKesakitanRouteImport } from './routes/staf.tracker.$parentId.kesakitan'
 import { Route as StafTrackerParentIdAktivitiRouteImport } from './routes/staf.tracker.$parentId.aktiviti'
 import { Route as AdminWargaEmasParentIdEditRouteImport } from './routes/admin.warga-emas.$parentId.edit'
 import { Route as AdminArtikelArticleIdEditRouteImport } from './routes/admin.artikel.$articleId.edit'
@@ -112,6 +119,11 @@ const StafProfilRoute = StafProfilRouteImport.update({
   path: '/profil',
   getParentRoute: () => StafRoute,
 } as any)
+const StafBorangRoute = StafBorangRouteImport.update({
+  id: '/borang',
+  path: '/borang',
+  getParentRoute: () => StafRoute,
+} as any)
 const AnakServiceRoute = AnakServiceRouteImport.update({
   id: '/service',
   path: '/service',
@@ -150,6 +162,11 @@ const AdminServisRoute = AdminServisRouteImport.update({
 const AdminProfilRoute = AdminProfilRouteImport.update({
   id: '/profil',
   path: '/profil',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBorangRoute = AdminBorangRouteImport.update({
+  id: '/borang',
+  path: '/borang',
   getParentRoute: () => AdminRoute,
 } as any)
 const StafRekodIndexRoute = StafRekodIndexRouteImport.update({
@@ -244,10 +261,40 @@ const StafTrackerParentIdUbatRoute = StafTrackerParentIdUbatRouteImport.update({
   path: '/tracker/$parentId/ubat',
   getParentRoute: () => StafRoute,
 } as any)
+const StafTrackerParentIdTingkahLakuRoute =
+  StafTrackerParentIdTingkahLakuRouteImport.update({
+    id: '/tracker/$parentId/tingkah-laku',
+    path: '/tracker/$parentId/tingkah-laku',
+    getParentRoute: () => StafRoute,
+  } as any)
+const StafTrackerParentIdRisikoJatuhRoute =
+  StafTrackerParentIdRisikoJatuhRouteImport.update({
+    id: '/tracker/$parentId/risiko-jatuh',
+    path: '/tracker/$parentId/risiko-jatuh',
+    getParentRoute: () => StafRoute,
+  } as any)
+const StafTrackerParentIdPosisiRoute =
+  StafTrackerParentIdPosisiRouteImport.update({
+    id: '/tracker/$parentId/posisi',
+    path: '/tracker/$parentId/posisi',
+    getParentRoute: () => StafRoute,
+  } as any)
+const StafTrackerParentIdPerkumuhanRoute =
+  StafTrackerParentIdPerkumuhanRouteImport.update({
+    id: '/tracker/$parentId/perkumuhan',
+    path: '/tracker/$parentId/perkumuhan',
+    getParentRoute: () => StafRoute,
+  } as any)
 const StafTrackerParentIdMakananRoute =
   StafTrackerParentIdMakananRouteImport.update({
     id: '/tracker/$parentId/makanan',
     path: '/tracker/$parentId/makanan',
+    getParentRoute: () => StafRoute,
+  } as any)
+const StafTrackerParentIdKesakitanRoute =
+  StafTrackerParentIdKesakitanRouteImport.update({
+    id: '/tracker/$parentId/kesakitan',
+    path: '/tracker/$parentId/kesakitan',
     getParentRoute: () => StafRoute,
   } as any)
 const StafTrackerParentIdAktivitiRoute =
@@ -283,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/daftar-staff': typeof DaftarStaffRoute
   '/login': typeof LoginRoute
   '/staf': typeof StafRouteWithChildren
+  '/admin/borang': typeof AdminBorangRoute
   '/admin/profil': typeof AdminProfilRoute
   '/admin/servis': typeof AdminServisRoute
   '/admin/staff': typeof AdminStaffRoute
@@ -291,6 +339,7 @@ export interface FileRoutesByFullPath {
   '/anak/daftar-warga': typeof AnakDaftarWargaRoute
   '/anak/profil': typeof AnakProfilRoute
   '/anak/service': typeof AnakServiceRoute
+  '/staf/borang': typeof StafBorangRoute
   '/staf/profil': typeof StafProfilRoute
   '/staf/warga-emas': typeof StafWargaEmasRoute
   '/admin/': typeof AdminIndexRoute
@@ -311,7 +360,12 @@ export interface FileRoutesByFullPath {
   '/admin/artikel/$articleId/edit': typeof AdminArtikelArticleIdEditRoute
   '/admin/warga-emas/$parentId/edit': typeof AdminWargaEmasParentIdEditRoute
   '/staf/tracker/$parentId/aktiviti': typeof StafTrackerParentIdAktivitiRoute
+  '/staf/tracker/$parentId/kesakitan': typeof StafTrackerParentIdKesakitanRoute
   '/staf/tracker/$parentId/makanan': typeof StafTrackerParentIdMakananRoute
+  '/staf/tracker/$parentId/perkumuhan': typeof StafTrackerParentIdPerkumuhanRoute
+  '/staf/tracker/$parentId/posisi': typeof StafTrackerParentIdPosisiRoute
+  '/staf/tracker/$parentId/risiko-jatuh': typeof StafTrackerParentIdRisikoJatuhRoute
+  '/staf/tracker/$parentId/tingkah-laku': typeof StafTrackerParentIdTingkahLakuRoute
   '/staf/tracker/$parentId/ubat': typeof StafTrackerParentIdUbatRoute
   '/staf/tracker/$parentId/vital': typeof StafTrackerParentIdVitalRoute
   '/admin/artikel/$articleId/': typeof AdminArtikelArticleIdIndexRoute
@@ -324,6 +378,7 @@ export interface FileRoutesByTo {
   '/daftar-anak': typeof DaftarAnakRoute
   '/daftar-staff': typeof DaftarStaffRoute
   '/login': typeof LoginRoute
+  '/admin/borang': typeof AdminBorangRoute
   '/admin/profil': typeof AdminProfilRoute
   '/admin/servis': typeof AdminServisRoute
   '/admin/staff': typeof AdminStaffRoute
@@ -332,6 +387,7 @@ export interface FileRoutesByTo {
   '/anak/daftar-warga': typeof AnakDaftarWargaRoute
   '/anak/profil': typeof AnakProfilRoute
   '/anak/service': typeof AnakServiceRoute
+  '/staf/borang': typeof StafBorangRoute
   '/staf/profil': typeof StafProfilRoute
   '/staf/warga-emas': typeof StafWargaEmasRoute
   '/admin': typeof AdminIndexRoute
@@ -352,7 +408,12 @@ export interface FileRoutesByTo {
   '/admin/artikel/$articleId/edit': typeof AdminArtikelArticleIdEditRoute
   '/admin/warga-emas/$parentId/edit': typeof AdminWargaEmasParentIdEditRoute
   '/staf/tracker/$parentId/aktiviti': typeof StafTrackerParentIdAktivitiRoute
+  '/staf/tracker/$parentId/kesakitan': typeof StafTrackerParentIdKesakitanRoute
   '/staf/tracker/$parentId/makanan': typeof StafTrackerParentIdMakananRoute
+  '/staf/tracker/$parentId/perkumuhan': typeof StafTrackerParentIdPerkumuhanRoute
+  '/staf/tracker/$parentId/posisi': typeof StafTrackerParentIdPosisiRoute
+  '/staf/tracker/$parentId/risiko-jatuh': typeof StafTrackerParentIdRisikoJatuhRoute
+  '/staf/tracker/$parentId/tingkah-laku': typeof StafTrackerParentIdTingkahLakuRoute
   '/staf/tracker/$parentId/ubat': typeof StafTrackerParentIdUbatRoute
   '/staf/tracker/$parentId/vital': typeof StafTrackerParentIdVitalRoute
   '/admin/artikel/$articleId': typeof AdminArtikelArticleIdIndexRoute
@@ -369,6 +430,7 @@ export interface FileRoutesById {
   '/daftar-staff': typeof DaftarStaffRoute
   '/login': typeof LoginRoute
   '/staf': typeof StafRouteWithChildren
+  '/admin/borang': typeof AdminBorangRoute
   '/admin/profil': typeof AdminProfilRoute
   '/admin/servis': typeof AdminServisRoute
   '/admin/staff': typeof AdminStaffRoute
@@ -377,6 +439,7 @@ export interface FileRoutesById {
   '/anak/daftar-warga': typeof AnakDaftarWargaRoute
   '/anak/profil': typeof AnakProfilRoute
   '/anak/service': typeof AnakServiceRoute
+  '/staf/borang': typeof StafBorangRoute
   '/staf/profil': typeof StafProfilRoute
   '/staf/warga-emas': typeof StafWargaEmasRoute
   '/admin/': typeof AdminIndexRoute
@@ -397,7 +460,12 @@ export interface FileRoutesById {
   '/admin/artikel/$articleId/edit': typeof AdminArtikelArticleIdEditRoute
   '/admin/warga-emas/$parentId/edit': typeof AdminWargaEmasParentIdEditRoute
   '/staf/tracker/$parentId/aktiviti': typeof StafTrackerParentIdAktivitiRoute
+  '/staf/tracker/$parentId/kesakitan': typeof StafTrackerParentIdKesakitanRoute
   '/staf/tracker/$parentId/makanan': typeof StafTrackerParentIdMakananRoute
+  '/staf/tracker/$parentId/perkumuhan': typeof StafTrackerParentIdPerkumuhanRoute
+  '/staf/tracker/$parentId/posisi': typeof StafTrackerParentIdPosisiRoute
+  '/staf/tracker/$parentId/risiko-jatuh': typeof StafTrackerParentIdRisikoJatuhRoute
+  '/staf/tracker/$parentId/tingkah-laku': typeof StafTrackerParentIdTingkahLakuRoute
   '/staf/tracker/$parentId/ubat': typeof StafTrackerParentIdUbatRoute
   '/staf/tracker/$parentId/vital': typeof StafTrackerParentIdVitalRoute
   '/admin/artikel/$articleId/': typeof AdminArtikelArticleIdIndexRoute
@@ -415,6 +483,7 @@ export interface FileRouteTypes {
     | '/daftar-staff'
     | '/login'
     | '/staf'
+    | '/admin/borang'
     | '/admin/profil'
     | '/admin/servis'
     | '/admin/staff'
@@ -423,6 +492,7 @@ export interface FileRouteTypes {
     | '/anak/daftar-warga'
     | '/anak/profil'
     | '/anak/service'
+    | '/staf/borang'
     | '/staf/profil'
     | '/staf/warga-emas'
     | '/admin/'
@@ -443,7 +513,12 @@ export interface FileRouteTypes {
     | '/admin/artikel/$articleId/edit'
     | '/admin/warga-emas/$parentId/edit'
     | '/staf/tracker/$parentId/aktiviti'
+    | '/staf/tracker/$parentId/kesakitan'
     | '/staf/tracker/$parentId/makanan'
+    | '/staf/tracker/$parentId/perkumuhan'
+    | '/staf/tracker/$parentId/posisi'
+    | '/staf/tracker/$parentId/risiko-jatuh'
+    | '/staf/tracker/$parentId/tingkah-laku'
     | '/staf/tracker/$parentId/ubat'
     | '/staf/tracker/$parentId/vital'
     | '/admin/artikel/$articleId/'
@@ -456,6 +531,7 @@ export interface FileRouteTypes {
     | '/daftar-anak'
     | '/daftar-staff'
     | '/login'
+    | '/admin/borang'
     | '/admin/profil'
     | '/admin/servis'
     | '/admin/staff'
@@ -464,6 +540,7 @@ export interface FileRouteTypes {
     | '/anak/daftar-warga'
     | '/anak/profil'
     | '/anak/service'
+    | '/staf/borang'
     | '/staf/profil'
     | '/staf/warga-emas'
     | '/admin'
@@ -484,7 +561,12 @@ export interface FileRouteTypes {
     | '/admin/artikel/$articleId/edit'
     | '/admin/warga-emas/$parentId/edit'
     | '/staf/tracker/$parentId/aktiviti'
+    | '/staf/tracker/$parentId/kesakitan'
     | '/staf/tracker/$parentId/makanan'
+    | '/staf/tracker/$parentId/perkumuhan'
+    | '/staf/tracker/$parentId/posisi'
+    | '/staf/tracker/$parentId/risiko-jatuh'
+    | '/staf/tracker/$parentId/tingkah-laku'
     | '/staf/tracker/$parentId/ubat'
     | '/staf/tracker/$parentId/vital'
     | '/admin/artikel/$articleId'
@@ -500,6 +582,7 @@ export interface FileRouteTypes {
     | '/daftar-staff'
     | '/login'
     | '/staf'
+    | '/admin/borang'
     | '/admin/profil'
     | '/admin/servis'
     | '/admin/staff'
@@ -508,6 +591,7 @@ export interface FileRouteTypes {
     | '/anak/daftar-warga'
     | '/anak/profil'
     | '/anak/service'
+    | '/staf/borang'
     | '/staf/profil'
     | '/staf/warga-emas'
     | '/admin/'
@@ -528,7 +612,12 @@ export interface FileRouteTypes {
     | '/admin/artikel/$articleId/edit'
     | '/admin/warga-emas/$parentId/edit'
     | '/staf/tracker/$parentId/aktiviti'
+    | '/staf/tracker/$parentId/kesakitan'
     | '/staf/tracker/$parentId/makanan'
+    | '/staf/tracker/$parentId/perkumuhan'
+    | '/staf/tracker/$parentId/posisi'
+    | '/staf/tracker/$parentId/risiko-jatuh'
+    | '/staf/tracker/$parentId/tingkah-laku'
     | '/staf/tracker/$parentId/ubat'
     | '/staf/tracker/$parentId/vital'
     | '/admin/artikel/$articleId/'
@@ -633,6 +722,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StafProfilRouteImport
       parentRoute: typeof StafRoute
     }
+    '/staf/borang': {
+      id: '/staf/borang'
+      path: '/borang'
+      fullPath: '/staf/borang'
+      preLoaderRoute: typeof StafBorangRouteImport
+      parentRoute: typeof StafRoute
+    }
     '/anak/service': {
       id: '/anak/service'
       path: '/service'
@@ -687,6 +783,13 @@ declare module '@tanstack/react-router' {
       path: '/profil'
       fullPath: '/admin/profil'
       preLoaderRoute: typeof AdminProfilRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/borang': {
+      id: '/admin/borang'
+      path: '/borang'
+      fullPath: '/admin/borang'
+      preLoaderRoute: typeof AdminBorangRouteImport
       parentRoute: typeof AdminRoute
     }
     '/staf/rekod/': {
@@ -808,11 +911,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StafTrackerParentIdUbatRouteImport
       parentRoute: typeof StafRoute
     }
+    '/staf/tracker/$parentId/tingkah-laku': {
+      id: '/staf/tracker/$parentId/tingkah-laku'
+      path: '/tracker/$parentId/tingkah-laku'
+      fullPath: '/staf/tracker/$parentId/tingkah-laku'
+      preLoaderRoute: typeof StafTrackerParentIdTingkahLakuRouteImport
+      parentRoute: typeof StafRoute
+    }
+    '/staf/tracker/$parentId/risiko-jatuh': {
+      id: '/staf/tracker/$parentId/risiko-jatuh'
+      path: '/tracker/$parentId/risiko-jatuh'
+      fullPath: '/staf/tracker/$parentId/risiko-jatuh'
+      preLoaderRoute: typeof StafTrackerParentIdRisikoJatuhRouteImport
+      parentRoute: typeof StafRoute
+    }
+    '/staf/tracker/$parentId/posisi': {
+      id: '/staf/tracker/$parentId/posisi'
+      path: '/tracker/$parentId/posisi'
+      fullPath: '/staf/tracker/$parentId/posisi'
+      preLoaderRoute: typeof StafTrackerParentIdPosisiRouteImport
+      parentRoute: typeof StafRoute
+    }
+    '/staf/tracker/$parentId/perkumuhan': {
+      id: '/staf/tracker/$parentId/perkumuhan'
+      path: '/tracker/$parentId/perkumuhan'
+      fullPath: '/staf/tracker/$parentId/perkumuhan'
+      preLoaderRoute: typeof StafTrackerParentIdPerkumuhanRouteImport
+      parentRoute: typeof StafRoute
+    }
     '/staf/tracker/$parentId/makanan': {
       id: '/staf/tracker/$parentId/makanan'
       path: '/tracker/$parentId/makanan'
       fullPath: '/staf/tracker/$parentId/makanan'
       preLoaderRoute: typeof StafTrackerParentIdMakananRouteImport
+      parentRoute: typeof StafRoute
+    }
+    '/staf/tracker/$parentId/kesakitan': {
+      id: '/staf/tracker/$parentId/kesakitan'
+      path: '/tracker/$parentId/kesakitan'
+      fullPath: '/staf/tracker/$parentId/kesakitan'
+      preLoaderRoute: typeof StafTrackerParentIdKesakitanRouteImport
       parentRoute: typeof StafRoute
     }
     '/staf/tracker/$parentId/aktiviti': {
@@ -847,6 +985,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminBorangRoute: typeof AdminBorangRoute
   AdminProfilRoute: typeof AdminProfilRoute
   AdminServisRoute: typeof AdminServisRoute
   AdminStaffRoute: typeof AdminStaffRoute
@@ -866,6 +1005,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminBorangRoute: AdminBorangRoute,
   AdminProfilRoute: AdminProfilRoute,
   AdminServisRoute: AdminServisRoute,
   AdminStaffRoute: AdminStaffRoute,
@@ -911,13 +1051,19 @@ const AnakRouteChildren: AnakRouteChildren = {
 const AnakRouteWithChildren = AnakRoute._addFileChildren(AnakRouteChildren)
 
 interface StafRouteChildren {
+  StafBorangRoute: typeof StafBorangRoute
   StafProfilRoute: typeof StafProfilRoute
   StafWargaEmasRoute: typeof StafWargaEmasRoute
   StafIndexRoute: typeof StafIndexRoute
   StafRekodParentIdRoute: typeof StafRekodParentIdRoute
   StafRekodIndexRoute: typeof StafRekodIndexRoute
   StafTrackerParentIdAktivitiRoute: typeof StafTrackerParentIdAktivitiRoute
+  StafTrackerParentIdKesakitanRoute: typeof StafTrackerParentIdKesakitanRoute
   StafTrackerParentIdMakananRoute: typeof StafTrackerParentIdMakananRoute
+  StafTrackerParentIdPerkumuhanRoute: typeof StafTrackerParentIdPerkumuhanRoute
+  StafTrackerParentIdPosisiRoute: typeof StafTrackerParentIdPosisiRoute
+  StafTrackerParentIdRisikoJatuhRoute: typeof StafTrackerParentIdRisikoJatuhRoute
+  StafTrackerParentIdTingkahLakuRoute: typeof StafTrackerParentIdTingkahLakuRoute
   StafTrackerParentIdUbatRoute: typeof StafTrackerParentIdUbatRoute
   StafTrackerParentIdVitalRoute: typeof StafTrackerParentIdVitalRoute
   StafTrackerParentIdIndexRoute: typeof StafTrackerParentIdIndexRoute
@@ -925,13 +1071,19 @@ interface StafRouteChildren {
 }
 
 const StafRouteChildren: StafRouteChildren = {
+  StafBorangRoute: StafBorangRoute,
   StafProfilRoute: StafProfilRoute,
   StafWargaEmasRoute: StafWargaEmasRoute,
   StafIndexRoute: StafIndexRoute,
   StafRekodParentIdRoute: StafRekodParentIdRoute,
   StafRekodIndexRoute: StafRekodIndexRoute,
   StafTrackerParentIdAktivitiRoute: StafTrackerParentIdAktivitiRoute,
+  StafTrackerParentIdKesakitanRoute: StafTrackerParentIdKesakitanRoute,
   StafTrackerParentIdMakananRoute: StafTrackerParentIdMakananRoute,
+  StafTrackerParentIdPerkumuhanRoute: StafTrackerParentIdPerkumuhanRoute,
+  StafTrackerParentIdPosisiRoute: StafTrackerParentIdPosisiRoute,
+  StafTrackerParentIdRisikoJatuhRoute: StafTrackerParentIdRisikoJatuhRoute,
+  StafTrackerParentIdTingkahLakuRoute: StafTrackerParentIdTingkahLakuRoute,
   StafTrackerParentIdUbatRoute: StafTrackerParentIdUbatRoute,
   StafTrackerParentIdVitalRoute: StafTrackerParentIdVitalRoute,
   StafTrackerParentIdIndexRoute: StafTrackerParentIdIndexRoute,

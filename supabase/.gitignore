@@ -1,0 +1,3 @@
+# Local Supabase CLI state (`supabase start`, `supabase db reset`) — never commit.
+.branches
+.temp

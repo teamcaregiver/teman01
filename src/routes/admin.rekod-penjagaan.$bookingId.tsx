@@ -20,11 +20,14 @@ import type { TrackerRecord } from "@/lib/mock-data";
 import { useBookings, useParents, useTrackers, useGetCaregiver } from "@/lib/data";
 import { StatusBadge } from "@/components/status-badge";
 import { VitalCharts } from "@/components/vital-charts";
+import { PemantauanReport } from "@/components/pemantauan-report";
+import { adaPemantauan } from "@/lib/pemantauan";
 import { format } from "date-fns";
 import {
   Activity,
   CalendarDays,
   ChevronLeft,
+  ClipboardCheck,
   HeartPulse,
   Pill,
   UtensilsCrossed,
@@ -127,7 +130,7 @@ function RekodPenjagaan() {
           <ChevronLeft className="h-4 w-4" /> Kembali ke Servis Monitoring
         </Link>
         <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
-          Tempahan atau warga emas tidak dijumpai.
+          Tempahan atau penerima servis tidak dijumpai.
         </Card>
       </div>
     );
@@ -148,6 +151,7 @@ function RekodPenjagaan() {
       .map((m) => ({ r, m })),
   );
   const aktivitiRows = records.filter((r) => r.aktiviti);
+  const pemantauanRecords = records.filter(adaPemantauan);
 
   return (
     <div className="space-y-5">
@@ -164,7 +168,7 @@ function RekodPenjagaan() {
           Rekod Harian Penjagaan
         </h1>
         <p className="text-sm text-muted-foreground">
-          Butiran rekod penjagaan harian yang direkodkan oleh caregiver untuk
+          Butiran rekod penjagaan harian yang direkodkan oleh Temanion untuk
           tempahan ini (paparan sahaja).
         </p>
       </div>
@@ -174,7 +178,7 @@ function RekodPenjagaan() {
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Warga Emas
+              Penerima Servis
             </p>
             <p className="mt-0.5 text-sm font-semibold">{parent.fullName}</p>
             <p className="text-xs text-muted-foreground">
@@ -183,7 +187,7 @@ function RekodPenjagaan() {
           </div>
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Caregiver Ditugaskan
+              Temanion Ditugaskan
             </p>
             {cg ? (
               <div className="mt-1 flex items-center gap-2">
@@ -224,7 +228,7 @@ function RekodPenjagaan() {
 
       {allRecords.length === 0 ? (
         <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
-          Belum ada rekod penjagaan harian direkodkan untuk warga emas ini.
+          Belum ada rekod penjagaan harian direkodkan untuk penerima servis ini.
         </Card>
       ) : (
         <>
@@ -489,6 +493,23 @@ function RekodPenjagaan() {
                       </TableBody>
                     </Table>
                   </Card>
+                </section>
+              )}
+
+              {/* Manual 3 monitoring tables, one block per day */}
+              {pemantauanRecords.length > 0 && (
+                <section className="space-y-2">
+                  <SectionTitle icon={<ClipboardCheck className="h-4 w-4" />}>
+                    Jadual Pemantauan (Buku 3)
+                  </SectionTitle>
+                  {pemantauanRecords.map((r) => (
+                    <Card key={r.id} className="space-y-4 border-border/60 p-4">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        {format(new Date(r.date), "EEEE, dd MMM yyyy")}
+                      </p>
+                      <PemantauanReport record={r} showPengesahan />
+                    </Card>
+                  ))}
                 </section>
               )}
 

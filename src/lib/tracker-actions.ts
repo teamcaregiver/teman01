@@ -13,6 +13,13 @@ import type {
   ChecklistItemData,
 } from "./mock-data";
 import type { TrackerRow } from "./supabase/types";
+import type {
+  KesakitanEntry,
+  PerkumuhanEntry,
+  PosisiEntry,
+  RisikoJatuhEntry,
+  TingkahLakuEntry,
+} from "./pemantauan";
 
 const rank: Record<TrackerStatus, number> = { normal: 0, attention: 1, critical: 2 };
 
@@ -97,6 +104,27 @@ export async function appendAktiviti(
     aktiviti_pengesahan: aktiviti ? staffName : rec.aktiviti_pengesahan,
     gambar: photos.length ? [...(rec.gambar ?? []), ...photos] : rec.gambar,
   });
+}
+
+/** Manual 3 monitoring lists and the tracker_records column each lives in. */
+type PemantauanColumns = {
+  perkumuhan_entries: PerkumuhanEntry;
+  tingkah_laku_entries: TingkahLakuEntry;
+  posisi_entries: PosisiEntry;
+  kesakitan_entries: KesakitanEntry;
+  risiko_jatuh_entries: RisikoJatuhEntry;
+};
+
+/** Appends one monitoring entry (perkumuhan, mood, posisi, ...) to today's record. */
+export async function addPemantauanEntry<C extends keyof PemantauanColumns>(
+  parentId: string,
+  staffId: string,
+  column: C,
+  entry: PemantauanColumns[C],
+) {
+  const rec = await getOrCreateToday(parentId, staffId);
+  const current = (rec[column] ?? []) as PemantauanColumns[C][];
+  await update(rec.id, { [column]: [...current, entry] });
 }
 
 export async function setChecklist(parentId: string, staffId: string, checklist: ChecklistItemData[]) {

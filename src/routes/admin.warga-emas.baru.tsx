@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
+import { LokasiSelect } from "@/components/lokasi-select";
 
 export const Route = createFileRoute("/admin/warga-emas/baru")({
   component: NewParent,
@@ -44,6 +45,7 @@ function NewParent() {
   const [saving, setSaving] = useState(false);
   const [relationship, setRelationship] = useState("");
   const [relationshipOther, setRelationshipOther] = useState("");
+  const [lokasi, setLokasi] = useState("");
 
   // Unsaved-change guard: any edit arms it, a successful save disarms it.
   const [dirty, setDirty] = useState(false);
@@ -112,6 +114,7 @@ function NewParent() {
           birth_date: get("birthDate") || null,
           gender: (get("gender") as "L" | "P") || "P",
           address: get("address"),
+          lokasi: lokasi || null,
           phone: get("phone"),
           medical_condition: get("medicalCondition"),
           medication: get("medication"),
@@ -141,10 +144,10 @@ function NewParent() {
 
       setDirty(false);
       invalidate(qk.parents);
-      toast.success("Warga emas berjaya didaftarkan");
+      toast.success("Penerima servis berjaya didaftarkan");
       navigate({ to: "/admin/warga-emas" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal mendaftar warga emas.");
+      toast.error(err instanceof Error ? err.message : "Gagal mendaftar penerima servis.");
     } finally {
       setSaving(false);
     }
@@ -163,7 +166,7 @@ function NewParent() {
       </Button>
 
       <div>
-        <h1 className="font-display text-2xl font-bold">Daftar Warga Emas</h1>
+        <h1 className="font-display text-2xl font-bold">Daftar Penerima Servis</h1>
         <p className="text-sm text-muted-foreground">Isi maklumat lengkap dan pautkan kepada akaun anak.</p>
       </div>
       <form onSubmit={handleSubmit} onChange={markDirty} onInput={markDirty}>
@@ -212,6 +215,15 @@ function NewParent() {
                   </Field>
                 </div>
               )}
+              <Field label="Lokasi">
+                <LokasiSelect
+                  value={lokasi}
+                  onChange={(v) => {
+                    setLokasi(v);
+                    markDirty();
+                  }}
+                />
+              </Field>
               <div className="md:col-span-2">
                 <Field label="Alamat *"><Textarea name="address" rows={2} required placeholder="No. rumah, jalan, poskod, bandar" /></Field>
               </div>
@@ -338,7 +350,7 @@ function NewParent() {
             <AlertDialogTitle>Buang maklumat yang belum disimpan?</AlertDialogTitle>
             <AlertDialogDescription>
               Anda telah mengisi borang ini tetapi belum menyimpannya. Jika anda
-              keluar sekarang, tiada rekod warga emas akan dicipta dan maklumat
+              keluar sekarang, tiada rekod penerima servis akan dicipta dan maklumat
               yang diisi akan hilang.
             </AlertDialogDescription>
           </AlertDialogHeader>

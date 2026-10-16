@@ -63,7 +63,7 @@ function LoginPage() {
           className="space-y-6"
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-            <Heart className="h-3.5 w-3.5 text-primary" /> Sistem Penjagaan Warga Emas
+            <Heart className="h-3.5 w-3.5 text-primary" /> Sistem Penjagaan Teman Malaysia
           </div>
           <h1 className="font-display text-4xl font-bold leading-tight md:text-5xl">
             Penjagaan dengan{" "}
@@ -73,7 +73,7 @@ function LoginPage() {
             .
           </h1>
           <p className="max-w-md text-muted-foreground">
-            Pantau kesihatan harian, urus pasukan penjaga, dan kekal berhubung dengan orang tersayang dalam satu platform yang lembut dan boleh dipercayai.
+            Urus penjagaan, pantau keperluan harian, dan kekal berhubung dengan orang tersayang — semuanya dalam satu platform yang mudah dan dipercayai.
           </p>
 
           <Card className="border-border/60 bg-card/60 p-4">
@@ -156,7 +156,7 @@ function LoginPage() {
                 </Button>
                 <span>·</span>
                 <Button variant="link" size="sm" className="h-auto p-0" onClick={() => navigate({ to: "/daftar-staff" })}>
-                  Daftar sebagai Staf
+                  Daftar sebagai Temanion
                 </Button>
               </div>
             </div>

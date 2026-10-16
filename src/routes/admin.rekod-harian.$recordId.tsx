@@ -42,7 +42,7 @@ function RekodHarianDetail() {
           Butiran Rekod Penjagaan
         </h1>
         <p className="text-sm text-muted-foreground">
-          Rekod penjagaan harian yang direkodkan oleh caregiver (paparan
+          Rekod penjagaan harian yang direkodkan oleh Temanion (paparan
           sahaja).
         </p>
       </div>
@@ -62,7 +62,7 @@ function RekodHarianDetail() {
             <span>{format(new Date(record.date), "dd MMM yyyy, HH:mm")}</span>
             <span>·</span>
             <span>
-              Staf:{" "}
+              Temanion:{" "}
               <span className="font-medium text-foreground">
                 {staff?.name ?? "—"}
               </span>

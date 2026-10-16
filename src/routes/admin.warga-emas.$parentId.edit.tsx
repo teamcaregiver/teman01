@@ -28,6 +28,7 @@ import {
 } from "@/lib/relationship";
 import { toast } from "sonner";
 import { ChevronLeft } from "lucide-react";
+import { LokasiSelect } from "@/components/lokasi-select";
 
 export const Route = createFileRoute("/admin/warga-emas/$parentId/edit")({
   component: EditParent,
@@ -44,6 +45,7 @@ type FormState = {
   gender: "L" | "P";
   phone: string;
   address: string;
+  lokasi: string;
   relationship: string;
   relationshipOther: string;
   jenisDarah: string;
@@ -99,6 +101,7 @@ function EditParent() {
       gender: parent.gender,
       phone: parent.phone ?? "",
       address: parent.address ?? "",
+      lokasi: parent.lokasi ?? "",
       relationship: rel.option,
       relationshipOther: rel.other,
       jenisDarah: parent.jenisDarah ?? "",
@@ -181,6 +184,7 @@ function EditParent() {
           birth_date: form.birthDate || null,
           gender: form.gender,
           address: form.address.trim(),
+          lokasi: form.lokasi || null,
           phone: form.phone.trim(),
           medical_condition: form.medicalCondition.trim(),
           medication: form.medication.trim(),
@@ -217,7 +221,7 @@ function EditParent() {
 
       setDirty(false);
       invalidate(qk.parents);
-      toast.success("Maklumat warga emas berjaya dikemas kini");
+      toast.success("Maklumat penerima servis berjaya dikemas kini");
       navigate({ to: "/admin/warga-emas/$parentId", params: { parentId } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mengemas kini maklumat.");
@@ -240,7 +244,7 @@ function EditParent() {
   if (!parent || !form)
     return (
       <StatusPanel
-        title="Warga emas tidak dijumpai"
+        title="Penerima servis tidak dijumpai"
         hint="Rekod ini mungkin telah dipadam atau pautan tidak sah."
         action={
           <Button variant="outline" size="sm" asChild>
@@ -263,7 +267,7 @@ function EditParent() {
       </Button>
 
       <div>
-        <h1 className="font-display text-2xl font-bold">Edit Warga Emas</h1>
+        <h1 className="font-display text-2xl font-bold">Edit Penerima Servis</h1>
         <p className="text-sm text-muted-foreground">
           Kemas kini maklumat {parent.fullName}.
         </p>
@@ -317,6 +321,9 @@ function EditParent() {
                   </Field>
                 </div>
               )}
+              <Field label="Lokasi">
+                <LokasiSelect value={form.lokasi} onChange={(v) => set("lokasi", v)} />
+              </Field>
               <div className="md:col-span-2">
                 <Field label="Alamat *">
                   <Textarea rows={2} value={form.address} onChange={(e) => set("address", e.target.value)} />
@@ -410,7 +417,7 @@ function EditParent() {
             <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4">
               <p className="text-sm font-medium">Anak Terpaut</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Tandakan akaun anak yang boleh melihat rekod warga emas ini.
+                Tandakan akaun anak yang boleh melihat rekod penerima servis ini.
               </p>
               {anakOptions.length === 0 ? (
                 <p className="mt-3 text-xs text-muted-foreground">

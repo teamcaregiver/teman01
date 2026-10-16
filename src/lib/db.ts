@@ -8,7 +8,9 @@ import type {
   Booking,
   BookingStatus,
   Caregiver,
+  FormLink,
   Medication,
+  MyService,
   Parent,
   ServiceTypeOption,
   TrackerRecord,
@@ -19,7 +21,10 @@ import type {
   ArticleRow,
   BookingRow,
   CaregiverRow,
+  FormLinkRow,
   MedicationRow,
+  MyServiceRow,
+  ParentChecklistRow,
   ParentRow,
   ProfileRow,
   ServiceTypeRow,
@@ -73,6 +78,7 @@ const toParent = (r: ParentRow, anakIds: string[]): Parent => ({
   statusKognitif: r.status_kognitif ?? undefined,
   sekatanPemakanan: r.sekatan_pemakanan ?? undefined,
   archivedAt: r.archived_at ?? undefined,
+  lokasi: r.lokasi ?? undefined,
 });
 
 const toMedication = (r: MedicationRow): Medication => ({
@@ -123,6 +129,11 @@ const toTracker = (r: TrackerRow): TrackerRecord => ({
   editedByAdmin: r.edited_by_admin ?? undefined,
   editedAt: r.edited_at ?? undefined,
   editAllowed: r.edit_allowed ?? undefined,
+  perkumuhanEntries: r.perkumuhan_entries ?? undefined,
+  tingkahLakuEntries: r.tingkah_laku_entries ?? undefined,
+  posisiEntries: r.posisi_entries ?? undefined,
+  kesakitanEntries: r.kesakitan_entries ?? undefined,
+  risikoJatuhEntries: r.risiko_jatuh_entries ?? undefined,
 });
 
 const toBooking = (r: BookingRow): Booking => ({
@@ -141,6 +152,19 @@ const toBooking = (r: BookingRow): Booking => ({
   price: r.price ?? undefined,
   paymentStatus: r.payment_status ?? undefined,
   paymentNotes: r.payment_notes ?? undefined,
+  confirmedAt: r.confirmed_at ?? undefined,
+});
+
+const toMyService = (r: MyServiceRow): MyService => ({
+  id: r.id,
+  parentId: r.parent_id ?? undefined,
+  clientName: r.client_name ?? undefined,
+  bookedBy: r.booked_by ?? undefined,
+  serviceName: r.service_name,
+  date: r.date ?? "",
+  time: r.time ?? "",
+  location: r.location ?? "",
+  status: r.status,
 });
 
 const toArticle = (r: ArticleRow & TaxonomyNames): Article => ({
@@ -174,6 +198,19 @@ const toVideo = (r: VideoRow & TaxonomyNames): Video => ({
   visibility: r.visibility,
   views: r.views ?? 0,
   createdAt: r.created_at,
+});
+
+const toFormLink = (r: FormLinkRow): FormLink => ({
+  id: r.id,
+  title: r.title,
+  url: r.url,
+  description: r.description ?? "",
+  createdBy: r.created_by ?? undefined,
+  createdByName: r.created_by_name,
+  createdAt: r.created_at,
+  archivedAt: r.archived_at ?? undefined,
+  deletedAt: r.deleted_at ?? undefined,
+  deletedBy: r.deleted_by ?? undefined,
 });
 
 function unwrap<T>(data: T | null, error: { message: string } | null): T {
@@ -307,6 +344,31 @@ export async function fetchBookings(): Promise<Booking[]> {
   return unwrap<BookingRow[]>(data, error).map(toBooking);
 }
 
+/**
+ * Open services (pending / confirmed / ongoing) assigned to the logged-in
+ * staff, soonest first. Goes through the list_my_services() RPC because staff
+ * cannot read bookings directly; completed ones are left out by design.
+ */
+export async function fetchMyServices(): Promise<MyService[]> {
+  const { data, error } = await supabase.rpc("list_my_services");
+  return unwrap<MyServiceRow[]>(data, error).map(toMyService);
+}
+
+// ---------- per-resident checklist ----------
+/** A resident's own checklist items, or null while they use the default list. */
+export async function fetchParentChecklist(
+  parentId: string,
+): Promise<{ id: string; label: string }[] | null> {
+  const { data, error } = await supabase
+    .from("parent_checklists")
+    .select("*")
+    .eq("parent_id", parentId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const items = (data as ParentChecklistRow | null)?.items;
+  return items?.length ? items : null;
+}
+
 // ---------- content ----------
 export async function fetchArticles(): Promise<Article[]> {
   const { data, error } = await supabase
@@ -332,6 +394,20 @@ export async function fetchVideos(): Promise<Video[]> {
     .select(VIDEO_SELECT)
     .order("created_at", { ascending: false });
   return unwrap<(VideoRow & TaxonomyNames)[]>(data, error).map(toVideo);
+}
+
+// ---------- borang (form links) ----------
+/**
+ * Every Borang link the caller may see, newest first: active and archived
+ * for staff, plus soft-deleted ones for admins (RLS decides). The page splits
+ * them into tabs.
+ */
+export async function fetchFormLinks(): Promise<FormLink[]> {
+  const { data, error } = await supabase
+    .from("form_links")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return unwrap<FormLinkRow[]>(data, error).map(toFormLink);
 }
 
 // ---------- dashboard helpers ----------

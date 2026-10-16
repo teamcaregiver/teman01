@@ -6,6 +6,13 @@ import type {
   MakananEntry,
   ChecklistItemData,
 } from "@/lib/mock-data";
+import type {
+  KesakitanEntry,
+  PerkumuhanEntry,
+  PosisiEntry,
+  RisikoJatuhEntry,
+  TingkahLakuEntry,
+} from "@/lib/pemantauan";
 
 export type Role = "admin" | "staff" | "anak";
 export type UserStatus = "active" | "pending" | "rejected" | "inactive";
@@ -37,6 +44,14 @@ export type ProfileRow = {
   experience_years: number | null;
   rating: number | null;
   notes: string | null;
+  // Temanion details (migration 0013) — admin-managed.
+  tahun_lahir: number | null;
+  jantina: Gender | null;
+  bangsa: string | null;
+  warganegara: string | null;
+  lokasi: string | null;
+  alamat: string | null;
+  kemahiran: string[] | null;
   created_at: string;
 };
 
@@ -63,6 +78,7 @@ export type ParentRow = {
   status_kognitif: string | null;
   sekatan_pemakanan: string | null;
   archived_at: string | null;
+  lokasi: string | null;
   created_at: string;
 };
 
@@ -121,6 +137,12 @@ export type TrackerRow = {
   edited_by_admin: boolean | null;
   edited_at: string | null;
   edit_allowed: boolean | null;
+  // Manual 3 monitoring lists (migration 0013).
+  perkumuhan_entries: PerkumuhanEntry[] | null;
+  tingkah_laku_entries: TingkahLakuEntry[] | null;
+  posisi_entries: PosisiEntry[] | null;
+  kesakitan_entries: KesakitanEntry[] | null;
+  risiko_jatuh_entries: RisikoJatuhEntry[] | null;
   created_at: string;
 };
 
@@ -140,6 +162,7 @@ export type BookingRow = {
   price: number | null;
   payment_status: PaymentStatus | null;
   payment_notes: string | null;
+  confirmed_at: string | null; // set by trg_booking_confirmed (migration 0013)
 };
 
 export type ArticleRow = {
@@ -182,6 +205,44 @@ export type SubtopicRow = {
   topic_id: string;
   name: string;
   created_at: string;
+};
+
+// Borang board (migration 0011). created_by / created_by_name / timestamps are
+// stamped by a trigger; deleted_at is set through soft_delete_form_link().
+export type FormLinkRow = {
+  id: string;
+  title: string;
+  url: string;
+  description: string | null;
+  created_by: string | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
+};
+
+// A resident's own daily checklist (migration 0012). No row = default list.
+// updated_at / updated_by are stamped by a trigger.
+export type ParentChecklistRow = {
+  parent_id: string;
+  items: { id: string; label: string }[];
+  updated_at: string;
+  updated_by: string | null;
+};
+
+/** One row of the `list_my_services()` RPC — an open service assigned to the caller. */
+export type MyServiceRow = {
+  id: string;
+  parent_id: string | null;
+  client_name: string | null;
+  booked_by: string | null;
+  service_name: string;
+  date: string | null;
+  time: string | null;
+  location: string | null;
+  status: BookingStatus;
 };
 
 type Tbl<
@@ -229,12 +290,16 @@ export interface Database {
       videos: Tbl<VideoRow, Partial<VideoRow>, Partial<VideoRow>, TaxonomyRelationships<"videos">>;
       topics: Tbl<TopicRow>;
       subtopics: Tbl<SubtopicRow>;
+      form_links: Tbl<FormLinkRow>;
+      parent_checklists: Tbl<ParentChecklistRow>;
     };
     // Empty mapped type (NOT Record<string, never>, which would intersect every
     // table with `never` and break `.from()` typing).
     Views: { [_ in never]: never };
     Functions: {
       list_caregivers: { Args: Record<string, never>; Returns: CaregiverRow[] };
+      soft_delete_form_link: { Args: { p_id: string }; Returns: undefined };
+      list_my_services: { Args: Record<string, never>; Returns: MyServiceRow[] };
     };
     Enums: {
       role: Role;

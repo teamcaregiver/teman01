@@ -52,7 +52,7 @@ export function RegisterForm({ role }: { role: "anak" | "staff" }) {
       <div className="mx-auto max-w-md">
         <Card className="border-border/60 p-6 shadow-card">
           <h1 className="font-display text-2xl font-bold">
-            {role === "anak" ? "Daftar sebagai Anak" : "Daftar sebagai Staf"}
+            {role === "anak" ? "Daftar sebagai Anak" : "Daftar sebagai Temanion"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {role === "anak"

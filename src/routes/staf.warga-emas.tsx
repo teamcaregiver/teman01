@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useParents } from "@/lib/data";
-import { useAuth } from "@/lib/auth-store";
+import { OPENABLE_CLASS, openOnClick } from "@/lib/row-click";
+import { cn } from "@/lib/utils";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { ElderlyInfoDialog } from "@/components/elderly-info-dialog";
 import { GenderAvatar } from "@/components/gender-avatar";
@@ -13,9 +14,10 @@ export const Route = createFileRoute("/staf/warga-emas")({
 });
 
 function AssignedParents() {
-  const { user } = useAuth();
-  const parents = useParents();
-  const list = parents.filter((p) => p.staffId === user?.id);
+  const navigate = useNavigate();
+  // RLS returns the people this Temanion looks after: assigned to them, or
+  // on one of their open bookings (migration 0014).
+  const list = useParents();
   return (
     <div className="space-y-5">
       <div>
@@ -28,7 +30,18 @@ function AssignedParents() {
         <div className="grid gap-4 md:grid-cols-2">
           {list.map((p) => (
             <StaggerItem key={p.id}>
-              <Card className="hover-lift border-border/60 p-5">
+              {/* The whole card opens Rekod Harian; the info button keeps its own action. */}
+              <Card
+                className={cn("hover-lift rounded-xl border-border/60 p-5", OPENABLE_CLASS)}
+                {...openOnClick(
+                  () =>
+                    void navigate({
+                      to: "/staf/tracker/$parentId",
+                      params: { parentId: p.id },
+                    }),
+                  `Buka Rekod Harian ${p.fullName}`,
+                )}
+              >
                 <div className="flex items-start gap-3">
                   <GenderAvatar gender={p.gender} />
                   <div className="min-w-0 flex-1">

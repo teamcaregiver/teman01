@@ -9,6 +9,7 @@ import { FieldLabel, TrackerFormShell } from "@/components/tracker-form-shell";
 import { useParents } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { useSimpanPemantauan } from "@/hooks/use-simpan-pemantauan";
+import { cn } from "@/lib/utils";
 import {
   FAKTOR_RISIKO_JATUH,
   KEJADIAN_JATUH,
@@ -98,14 +99,18 @@ function RisikoJatuhForm() {
           <div className="grid gap-2">
             {FAKTOR_RISIKO_JATUH.map((f) => {
               const ya = faktor.includes(f.key);
+              // Only a ticked factor is labelled ("Ya"); an unticked one is a "Tidak" by default.
               return (
                 <label
                   key={f.key}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border p-3 hover:bg-muted/40"
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors",
+                    ya ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+                  )}
                 >
                   <span className="text-sm">{f.label}</span>
-                  <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                    {ya ? "Ya" : "Tidak"}
+                  <span className="flex shrink-0 items-center gap-2 text-xs font-medium text-primary">
+                    {ya && "Ya"}
                     <Checkbox
                       checked={ya}
                       onCheckedChange={(v) => toggle(f.key, v === true)}

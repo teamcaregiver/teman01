@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -23,6 +22,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TopicSubtopicFields } from "@/components/topic-subtopic-fields";
 import { CoverImageField } from "@/components/cover-image-field";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { isBlank } from "@/lib/rich-text";
 import { uploadContentPdf } from "@/lib/storage";
 import {
   VISIBILITY_LABEL,
@@ -112,7 +113,7 @@ export function ArticleForm({
       toast.error("Sila isi tajuk dan topik.");
       return;
     }
-    if (!form.body.trim() && !form.pdfUrl) {
+    if (isBlank(form.body) && !form.pdfUrl) {
       toast.error("Sila isi kandungan artikel atau muat naik PDF.");
       return;
     }
@@ -180,11 +181,11 @@ export function ArticleForm({
           <SectionCard title="Kandungan">
             <div className="space-y-4">
               <Field label="Kandungan Artikel">
-                <Textarea
-                  rows={8}
+                <RichTextEditor
                   value={form.body}
-                  onChange={(e) => set("body", e.target.value)}
+                  onChange={(html) => set("body", html)}
                   placeholder="Tulis kandungan artikel di sini..."
+                  ariaLabel="Kandungan Artikel"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Isi kandungan teks atau muat naik PDF — sekurang-kurangnya satu diperlukan.

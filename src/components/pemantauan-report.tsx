@@ -19,6 +19,7 @@ import {
   waktuHari,
 } from "@/lib/pemantauan";
 import { TahapPill } from "@/components/pemantauan-rujukan";
+import { MukaKesakitan } from "@/components/muka-kesakitan";
 import { cn } from "@/lib/utils";
 
 // `nowrap` keeps a score pill on one line in the desktop table (the table
@@ -194,10 +195,13 @@ export function PemantauanReport({
               key: `k${i}`,
               sel: [
                 waktu(e.masa),
-                <TahapPill
-                  tahap={tahapKesakitan(e.skor)}
-                  label={`${e.skor} · ${labelKesakitan(e.skor)}`}
-                />,
+                <span className="inline-flex items-center gap-1.5">
+                  <MukaKesakitan skor={e.skor} className="h-5 w-5 shrink-0" />
+                  <TahapPill
+                    tahap={tahapKesakitan(e.skor)}
+                    label={`${e.skor} · ${labelKesakitan(e.skor)}`}
+                  />
+                </span>,
                 teks(e.lokasi),
                 teks(e.catatan),
                 disahkan(e.pengesahan),

@@ -11,6 +11,8 @@ import { Download, FileText, Search, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { Buku3 } from "@/components/buku3";
+import { RichText } from "@/components/rich-text";
+import { previewText } from "@/lib/rich-text";
 
 export const Route = createFileRoute("/anak/informasi/")({
   component: InfoLibrary,
@@ -135,7 +137,7 @@ function InfoLibrary() {
                             {a.title}
                           </p>
                           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                            {a.body}
+                            {previewText(a.body)}
                           </p>
                         </div>
                       </div>
@@ -173,9 +175,10 @@ function InfoLibrary() {
                   <p className="mt-1 text-sm font-display font-semibold">
                     {v.title}
                   </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {v.description}
-                  </p>
+                  <RichText
+                    content={v.description}
+                    className="mt-0.5 text-xs text-muted-foreground"
+                  />
 
                   {/* Bahan sokongan PDF — dipaparkan sama seperti artikel. */}
                   {v.pdfUrl && (

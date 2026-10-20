@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -47,9 +46,13 @@ import {
 } from "@/lib/mock-data";
 import type { Video, ContentVisibility } from "@/lib/mock-data";
 import { useVideos, useInvalidate, qk } from "@/lib/data";
+import { previewText } from "@/lib/rich-text";
+import { OPENABLE_CLASS, openOnClick } from "@/lib/row-click";
 import { supabase } from "@/lib/supabase/client";
 import { uploadContentPdf } from "@/lib/storage";
 import { TopicSubtopicFields } from "@/components/topic-subtopic-fields";
+import { RichText } from "@/components/rich-text";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import {
   ExternalLink,
   FileText,
@@ -253,8 +256,10 @@ function VideosPage() {
               <TableRow
                 key={v.id}
                 data-state={selected.has(v.id) ? "selected" : undefined}
+                className={OPENABLE_CLASS}
+                {...openOnClick(() => setVideoPreview(v), `Lihat video ${v.title}`)}
               >
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={selected.has(v.id)}
                     onCheckedChange={() => toggle(v.id)}
@@ -286,7 +291,7 @@ function VideosPage() {
                     <div className="min-w-0">
                       <p className="truncate font-medium">{v.title}</p>
                       <p className="line-clamp-1 max-w-[260px] text-xs text-muted-foreground">
-                        {v.description}
+                        {previewText(v.description)}
                       </p>
                     </div>
                   </div>
@@ -319,7 +324,7 @@ function VideosPage() {
                 <TableCell className="text-right text-sm tabular-nums">
                   {(v.views ?? 0).toLocaleString()}
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-0.5">
                     <Button
                       size="icon"
@@ -369,7 +374,7 @@ function VideosPage() {
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {dialog.mode === "add" ? "Tambah Video Baru" : "Kemaskini Video"}
@@ -419,13 +424,13 @@ function VideosPage() {
               )}
             </Field>
             <Field label="Penerangan">
-              <Textarea
-                rows={3}
+              <RichTextEditor
                 value={form.description}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, description: e.target.value }))
+                onChange={(description) =>
+                  setForm((f) => ({ ...f, description }))
                 }
                 placeholder="Ringkasan kandungan video..."
+                ariaLabel="Penerangan"
               />
             </Field>
 
@@ -528,11 +533,10 @@ function VideosPage() {
               />
             </div>
           )}
-          {videoPreview?.description && (
-            <p className="text-sm text-muted-foreground">
-              {videoPreview.description}
-            </p>
-          )}
+          <RichText
+            content={videoPreview?.description}
+            className="text-sm text-muted-foreground"
+          />
           <DialogFooter>
             <Button variant="outline" asChild>
               <a href={videoPreview?.url} target="_blank" rel="noreferrer">

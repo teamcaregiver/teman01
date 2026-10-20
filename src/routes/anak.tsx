@@ -5,6 +5,7 @@ import { getCurrentUser, signOut, useAuth } from "@/lib/auth-store";
 import { PageTransition } from "@/components/page-transition";
 import { Heart, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NAMA_SISTEM } from "@/lib/jenama";
 
 export const Route = createFileRoute("/anak")({
   beforeLoad: () => {
@@ -31,7 +32,7 @@ function AnakLayout() {
                 <Heart className="h-4 w-4 text-teal-foreground" />
               </div>
               <div>
-                <p className="font-display text-sm font-bold leading-none">CareSenior</p>
+                <p className="font-display text-sm font-bold leading-none">{NAMA_SISTEM}</p>
                 <p className="text-[11px] text-muted-foreground">{user?.name}</p>
               </div>
             </Link>

@@ -263,16 +263,18 @@ export interface KesakitanEntry {
   pengesahan?: string;
 }
 
-/** Wong-Baker FACES Pain Rating Scale (Wong-Baker FACES Foundation, 2016). */
-export const SKALA_KESAKITAN: { skor: number; label: string; muka: string }[] =
-  [
-    { skor: 0, label: "Tiada kesakitan", muka: "😀" },
-    { skor: 2, label: "Kesakitan ringan", muka: "🙂" },
-    { skor: 4, label: "Kesakitan ringan hingga sederhana", muka: "😐" },
-    { skor: 6, label: "Kesakitan sederhana", muka: "🙁" },
-    { skor: 8, label: "Kesakitan teruk", muka: "😣" },
-    { skor: 10, label: "Kesakitan sangat teruk", muka: "😭" },
-  ];
+/**
+ * Wong-Baker FACES Pain Rating Scale (Wong-Baker FACES Foundation, 2016).
+ * The faces are drawn by src/components/muka-kesakitan.tsx.
+ */
+export const SKALA_KESAKITAN: { skor: number; label: string }[] = [
+  { skor: 0, label: "Tiada kesakitan" },
+  { skor: 2, label: "Kesakitan ringan" },
+  { skor: 4, label: "Kesakitan ringan hingga sederhana" },
+  { skor: 6, label: "Kesakitan sederhana" },
+  { skor: 8, label: "Kesakitan teruk" },
+  { skor: 10, label: "Kesakitan sangat teruk" },
+];
 
 /** Label for any 0–10 score; an odd score takes the next face up. */
 export function labelKesakitan(skor: number): string {

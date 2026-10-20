@@ -45,6 +45,8 @@ import {
 import { StaggerItem, StaggerList } from "@/components/page-transition";
 import { useAuth } from "@/lib/auth-store";
 import { qk, useFormLinksQuery, useUsers } from "@/lib/data";
+import { OPENABLE_CLASS, openOnClick } from "@/lib/row-click";
+import { cn } from "@/lib/utils";
 import {
   FORM_LINK_DESCRIPTION_MAX,
   FORM_LINK_TITLE_MAX,
@@ -194,7 +196,19 @@ export function BorangPage() {
               const canManage = canManageFormLink(link, user);
               return (
                 <StaggerItem key={link.id}>
-                  <Card className="flex h-full flex-col border-border/60 p-5">
+                  {/* Clicking the card opens the form, like Buka Borang; deleted links stay closed. */}
+                  <Card
+                    className={cn(
+                      "flex h-full flex-col border-border/60 p-5",
+                      current !== "deleted" && ["hover-lift", OPENABLE_CLASS],
+                    )}
+                    {...(current !== "deleted"
+                      ? openOnClick(
+                          () => window.open(link.url, "_blank", "noopener,noreferrer"),
+                          `Buka borang ${link.title}`,
+                        )
+                      : {})}
+                  >
                     <div className="flex items-start gap-3">
                       <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-lavender text-lavender-foreground">
                         <ClipboardPen className="h-5 w-5" />

@@ -1,5 +1,5 @@
 # Software Requirements Specification (SRS)
-## Teman — Elderly Care Management System ("CareSenior")
+## Teman — Elderly Care Management System ("Sistem Teman Malaysia", formerly "CareSenior")
 
 **Document type:** Functional SRS (documents the existing mockup for production)
 **Version:** 1.0
@@ -89,10 +89,12 @@ User accounts also carry a **status**: `active`, `pending`, `rejected`, `inactiv
 - `/admin/warga-emas/baru` — Register new Penerima Servis
 - `/admin/warga-emas/$parentId` — Penerima Servis detail/edit
 - `/admin/tracker` — All daily records
+- `/admin/senarai-semak` — Default daily checklist ("Senarai Semak")
 - `/admin/servis` — Service booking monitoring (admin creates bookings here)
 - `/admin/borang` — Borang (shared form links)
-- `/admin/artikel` — Article management
-- `/admin/video` — Video management
+- `/admin/artikel` — Article management (Buku 1)
+- `/admin/video` — Video management (Buku 2)
+- `/admin/jadual-pemantauan` — Buku 3 sections ("Jadual Pemantauan"); `/baru` new section, `/$bahagianId` section page, `/$bahagianId/edit` edit
 
 **Staff** (`/staf`, role = staff)
 - `/staf` — Dashboard
@@ -175,7 +177,8 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 #### 3.B.2 Temanion management — `/admin/staff`
 - **Purpose:** Approve, edit and manage Temanion (caregiver) and admin accounts.
 - **Access:** Admin.
-- **UI:** Search box (name, email, phone); **location filter** (all / one location / no location); list (name, role, location, email, phone, status, actions); "Tambah Temanion" dialog; edit dialog. **Clicking a name opens a profile pop-up**: personal details, skills, Profil Temanion, and Tugasan (assigned care recipients and active services), with an "Edit Maklumat" button.
+- **UI:** Search box (name, email, phone); **location filter** (all / one location / no location); list (name, role, location, email, phone, status, actions); "Tambah Temanion" dialog; edit dialog. **Clicking a row opens a profile pop-up**: personal details, skills, Profil Temanion, and Tugasan (assigned care recipients and active services), with an "Edit Maklumat" button. The row's own buttons (Edit, Lulus, Nyahaktif, …) keep their action.
+- **Dropdowns:** Peranan, Jantina, **Warganegara**, **Bangsa** and Lokasi all use the same dropdown. Warganegara and Bangsa offer fixed lists (4.8); a value typed before they became dropdowns stays selectable. Long lists show about seven items and scroll, so they open below the field when there is room.
 - **Functions:**
   - Search; filter by location.
   - Add an account — created active by admin. Temanion details follow the application format: name, **age**, phone, **nationality**, **gender**, **race**, **location** (fixed list, 4.8), **address**, **skills**; plus email and temporary password.
@@ -225,22 +228,22 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 - **Rules:** Record status (normal/attention/critical) is derived from vitals. After the 24h window staff cannot edit unless admin grants access (see 5.3).
 - **States:** Loading, list, filtered-empty.
 
-#### 3.B.7 Article management — `/admin/artikel`
+#### 3.B.7 Article management (Buku 1) — `/admin/artikel`
 - **Purpose:** Manage the educational articles shown to families.
 - **Access:** Admin.
-- **UI:** "Add article" dialog; table (title, topic, subtopic, views, visibility, created date, actions); edit/delete with confirmation; bulk select.
-- **Form fields:** title, topic, subtopic, cover image URL, body, PDF URL + name, optional supporting YouTube URL, visibility (published/draft).
+- **UI:** "Artikel Baru" page; table (title, topic, subtopic, views, visibility, created date, actions) — **clicking a row opens the article page**; edit/delete with confirmation; bulk select.
+- **Form fields:** title, topic, subtopic, cover image URL, **body (rich text — Quill editor: headings, bold / italic / underline, numbered and bulleted lists, links, quotes)**, PDF URL + name, optional supporting YouTube URL, visibility (published/draft). Articles written before the editor keep their plain text and open in the editor as paragraphs.
 - **Functions:** Create, edit, delete; toggle visibility; assign topic/subtopic taxonomy.
 - **Data read:** `articles`; topic/subtopic taxonomy.
 - **Data written:** Create/update/delete `Article`.
 - **Rules:** Only `published` articles are visible to family (see 5.5).
 - **States:** Loading, list, empty.
 
-#### 3.B.8 Video management — `/admin/video`
+#### 3.B.8 Video management (Buku 2) — `/admin/video`
 - **Purpose:** Manage educational videos shown to families.
 - **Access:** Admin.
-- **UI:** Similar to articles; table with preview/edit/delete; preview modal embeds the YouTube video.
-- **Form fields:** title, topic, subtopic, YouTube URL (primary embed), description, optional PDF URL + name, visibility.
+- **UI:** Similar to articles; table with preview/edit/delete — **clicking a row opens the preview**, which embeds the YouTube video above its description.
+- **Form fields:** title, topic, subtopic, YouTube URL (primary embed), **description (rich text, same editor as articles)**, optional PDF URL + name, visibility.
 - **Functions:** Create, edit, delete; preview; toggle visibility.
 - **Data read/written:** `Video` records.
 - **Rules:** Only `published` videos visible to family.
@@ -263,27 +266,49 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 #### 3.B.10 Borang (form links) — `/admin/borang`
 - **Purpose:** A shared board of form links (Google Forms, Microsoft Forms, Jotform, …) that admin and staff post for the whole team.
 - **Access:** Admin (same page as staff, 3.C.10, with extra powers).
-- **UI:** Tabs **Aktif** / **Arkib** / **Dipadam** with counts; search (title, site, description, author); card grid — title, site name, description, "Ditambah oleh …" + date, and buttons Buka Borang (new tab), Salin pautan, Edit, Arkib / Nyaharkib, Padam. Deleted cards show when and by whom, with **Pulihkan**. Add/Edit dialog: title*, link*, description.
+- **UI:** Tabs **Aktif** / **Arkib** / **Dipadam** with counts; search (title, site, description, author); card grid — title, site name, description, "Ditambah oleh …" + date, and buttons Buka Borang (new tab), Salin pautan, Edit, Arkib / Nyaharkib, Padam. **Clicking a card opens the form in a new tab**, like Buka Borang (not on Dipadam). Deleted cards show when and by whom, with **Pulihkan**. Add/Edit dialog: title*, link*, description.
 - **Functions:** Add, edit, archive, unarchive, soft-delete **any** link; restore a deleted link (it returns to the tab it was deleted from).
 - **Data read:** `form_links` (every row, including soft-deleted); `profiles` for the "deleted by" name.
 - **Data written:** Insert / update `FormLink`; delete via `soft_delete_form_link()`.
 - **Rules:** See 5.7. Delete is a confirmation dialog; archive / unarchive / restore are one click.
 - **States:** Loading, per-tab list, empty, no search match, load error with retry.
 
+#### 3.B.11 Default checklist — `/admin/senarai-semak`
+- **Purpose:** Set the daily Senarai Semak that every care recipient without their own list uses.
+- **Access:** Admin.
+- **UI:** The default list as editable rows (rename, move up / down, remove, add — up to 50 items of up to 120 characters); badge "Senarai asal sistem" or "Diubah oleh admin"; buttons **Guna senarai asal sistem** (the built-in 8 items), **Batal perubahan**, **Simpan**. Below: the care recipients that have their own list ("senarai khas"), each linking to their page.
+- **Functions:** Edit and save the default list; go back to the built-in list; open a care recipient with their own list.
+- **Data read:** `checklist_default`; `parent_checklists` (which care recipients have their own list); `parents` (names).
+- **Data written:** Upsert the single `checklist_default` row; saving the built-in list unchanged deletes the row.
+- **Rules:** Care recipients with their own list keep it. Ticks follow item ids, so renaming an item keeps today's tick; a removed item drops out of today's checklist. Saving a care recipient's own list equal to the current default removes their own list (3.B.5).
+- **States:** Loading, editing with unsaved-changes warning, saving, load error with retry.
+
+#### 3.B.12 Buku 3 sections ("Jadual Pemantauan") — `/admin/jadual-pemantauan`
+- **Purpose:** Admin manages Buku 3 the same way as Artikel: a list, a page per section, and a form.
+- **Access:** Admin.
+- **UI:**
+  - **List:** every section in book order — #, title + text preview, type badge (**Manual 3** or **Tambahan**, plus **Diubah suai** when a Manual 3 section's text was changed, and the reference chart it keeps), status, last change, and actions **Naik / Turun** (move), **Edit**, **Kembalikan teks asal** (Manual 3) or **Padam** (Tambahan). Clicking a row opens the section page. "Bahagian Baru" button.
+  - **Section page:** title, badges, type / status / last change / reference chart, a note when Temanion also see the text (units 5–9), and the section exactly as families see it (text + charts). Buttons Edit, Kembalikan teks asal or Padam.
+  - **Form (new / edit):** title* (up to 200 characters), content* (rich text, same editor as articles); for a Manual 3 section a note naming the chart that stays under the text and a **Guna teks asal Manual 3** button; for a Tambahan section a status (Diterbitkan / Draf). Unsaved-changes warning.
+- **Functions:** Edit a section's title and text; return a Manual 3 section to its original text; add, edit, publish / unpublish and delete Tambahan sections; reorder any section.
+- **Data read/written:** `buku3_bahagian` (4.11), merged with the built-in Manual 3 text (`src/lib/buku3.ts`).
+- **Rules:** The 13 Manual 3 sections (Peranan, Sasaran, Profil, Panduan, Unit 1–9) are always shown and cannot be deleted or made drafts; their charts and tables are built in and not editable. A Tambahan section can be a draft, visible to admin only. A Manual 3 section whose text is unchanged keeps following the built-in text. A unit's text also appears in the Panduan Buku 3 box of its staff form (3.C.11).
+- **States:** Loading, list, not found, load error with retry, saving.
+
 ### 3.C Staff Panel
 
-#### 3.C.1 Staff dashboard — `/staf`
+#### 3.C.1 Staff dashboard ("Rekod Servis") — `/staf`
 - **Purpose:** Caregiver's daily starting point.
 - **Access:** Staff.
-- **UI:** Greeting with staff name; stat cards (number of assigned elderly, records today, records needing attention); card grid of "my elderly" with last-record time and a "new record" button.
-- **Data read:** `parents` where `staffId = current user`; this staff's `trackers`.
-- **States:** Loading, populated, empty (no assigned elderly).
+- **UI:** Greeting with staff name; stat cards (number of care recipients, records today, records needing attention); **Servis Saya** — the open services assigned to this Temanion (care recipient, service, location, date). **Clicking a service card opens that person's Rekod Harian** (3.C.4). A card that cannot open says why: the booking has no care recipient linked yet (admin links one in Servis Monitoring), or the person's record is not open to this Temanion.
+- **Data read:** `list_my_services()`; the `parents` this Temanion can access (5.6); this staff's `trackers`.
+- **States:** Loading, populated, empty (no services), load error with retry.
 
-#### 3.C.2 My assigned elderly — `/staf/warga-emas`
-- **Purpose:** See the elderly assigned to this caregiver, with care-relevant details.
+#### 3.C.2 My care recipients — `/staf/warga-emas`
+- **Purpose:** See the care recipients this caregiver looks after, with care-relevant details.
 - **Access:** Staff.
-- **UI:** Card grid — avatar/initials, name, medical condition; expandable details (phone, address, medication, emergency contact); "Tracker record" button → opens the tracker hub for that elderly.
-- **Data read:** `parents` where `staffId = current user`.
+- **UI:** Card grid — gender icon, name, info button (phone, address, medication, emergency contact). **Clicking a card opens the tracker hub** for that person; the "Rekod Tracker" button does the same.
+- **Data read:** The `parents` this Temanion can access (5.6).
 - **States:** Loading, grid, empty.
 
 #### 3.C.3 My records — `/staf/rekod`
@@ -295,13 +320,13 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 
 #### 3.C.4 Daily tracker hub — `/staf/tracker/$parentId`
 - **Purpose:** Central place to log all care for one elderly on the current day, item by item in real time.
-- **Access:** Staff (the elderly's assigned caregiver).
+- **Access:** Staff (the person's assigned caregiver, or the Temanion of an open booking for them — 5.6).
 - **UI:** Info banner (elderly name + recording staff name); guidance note ("press a button to record each item as it happens; each entry is auto-saved with the current time"); tab bar with **Rekod** and **Senarai Semak (Checklist)**.
   - **Rekod tab:** four action buttons → Vital, Ubat, Makanan & Minuman, Laporan Aktiviti Harian; a second group **Jadual Pemantauan (Buku 3)** → Perkumuhan, Mood & Tingkah Laku, Penukaran Posisi, Skor Kesakitan, Risiko Jatuh (3.C.11); plus the record history.
-  - **Senarai Semak tab:** the 8-item daily care checklist (interactive checkboxes), a progress indicator (X/8), and a "Catatan Khas" (special notes) textarea — auto-saved on change.
+  - **Senarai Semak tab:** the daily care checklist (interactive checkboxes) — the person's own list, or the default list (3.B.11) — a progress indicator (X/N), and a "Catatan Khas" (special notes) textarea — auto-saved on change.
 - **Functions:** Navigate to each entry sub-page; tick checklist items; write special notes.
 - **Data read/written:** Today's `TrackerRecord` for this (elderly, staff, date); created if it doesn't exist yet. Updates `checklist`, `catatanKhas`.
-- **The 8 checklist items (`DEFAULT_CHECKLIST`):** Mandi/kebersihan diri · Tukar pakaian · Ambil ubat mengikut jadual · Sarapan/makan mengikut waktu · Senaman ringan/pergerakan · Pantau tanda vital · Minum air mencukupi · Rehat/tidur secukupnya.
+- **The built-in default list (`DEFAULT_CHECKLIST`, used until admin changes the default on 3.B.11):** Mandi/kebersihan diri · Tukar pakaian · Ambil ubat mengikut jadual · Sarapan/makan mengikut waktu · Senaman ringan/pergerakan · Pantau tanda vital · Minum air mencukupi · Rehat/tidur secukupnya.
 - **States:** Loading, ready, saving.
 
 #### 3.C.5 Record vital signs — `/staf/tracker/$parentId/vital`
@@ -362,12 +387,12 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 #### 3.C.11 Monitoring tables (Manual 3 / Buku 3, units 5–9) — `/staf/tracker/$parentId/{perkumuhan,tingkah-laku,posisi,kesakitan,risiko-jatuh}`
 - **Purpose:** Record the Manual 3 monitoring tables one entry at a time, like the vital / food forms.
 - **Access:** Staff.
-- **UI (all five):** back link, "Untuk: name", live timestamp, a collapsible **Panduan Buku 3** box with the unit's general instructions, the fields below, Batal / Simpan Rekod.
+- **UI (all five):** back link, "Untuk: name", live timestamp, a collapsible **Panduan Buku 3** box with the unit's text from Buku 3 (as admin last saved it, 3.B.12), the fields below, Batal / Simpan Rekod.
   - **Perkumuhan:** type* (Air Kencing / Najis / Muntah); urine colour 1–8 (colour swatches) or Bristol type 1–7; times (1–20); condition (colour, texture, smell); notes. Shows the chart's reading (5.8).
   - **Tingkah laku & emosi:** Mood, Interaksi, Tingkah Laku, Emosi — each a 1–5 scale with the manual's labels, clearable; notes. At least one score required.
   - **Penukaran posisi:** position* (Baring Terlentang / Mengiring ke Kanan / Mengiring ke Kiri / Lain-lain + text), pre-selected from the Clock Turn Schedule for the current hour; purpose (quick picks); "redness / pressure-sore signs" checkbox; notes. Shows the last turn today and when the next is due (2 h later).
-  - **Skor kesakitan:** score* 0–10 with Wong-Baker faces on the even scores; where it hurts; notes.
-  - **Risiko jatuh:** the 8 risk factors as Ya/Tidak; fall incident since the last check (none / near fall / fall without injury / fall with injury); notes; the Morse Fall Scale disclaimer.
+  - **Skor kesakitan:** score* 0–10, each with its own drawn face in the Wong-Baker style (smile to crying, green to red) and a green-to-red bar under the scale; where it hurts; notes.
+  - **Risiko jatuh:** the 8 risk factors as tick boxes — a ticked factor is a "Ya" (labelled and highlighted), an unticked one counts as "Tidak" without a label; fall incident since the last check (none / near fall / fall without injury / fall with injury); notes; the Morse Fall Scale disclaimer.
 - **Data written:** Append a `PerkumuhanEntry` / `TingkahLakuEntry` / `PosisiEntry` / `KesakitanEntry` / `RisikoJatuhEntry` (with `masa` = now, `pengesahan` = staff name) to today's tracker record (4.4).
 - **Rules:** Same 24h edit window as other entries (5.3). These entries do not change the record's overall status (that still comes from vitals).
 - **States:** Idle, validating, saving, saved.
@@ -430,15 +455,15 @@ Each page below is specified as: **Purpose · Access · UI · Functions · Data 
 #### 3.D.6 Buku Caregiver (information library) — `/anak/informasi`
 - **Purpose:** Read the caregiver books: articles, videos and the monitoring manual.
 - **Access:** Anak.
-- **UI:** Search bar; topic filter buttons (All + the four topics) and dynamic subtopic filter (hidden on Buku 3); tabs **Buku 1** (articles), **Buku 2** (videos), **Buku 3** (*Jadual Pemantauan Pesakit oleh Caregiver*). Buku 3 is the Manual 3 text as collapsible sections — role of the manual, target users, patient profile, usage guide, and units 1–9 with their general instructions and reference charts (vital-sign table, dose times, Bristol chart, urine colours, behaviour indicators, clock-turn schedule, pain scale, fall-risk factors).
+- **UI:** Search bar; topic filter buttons (All + the four topics) and dynamic subtopic filter (hidden on Buku 3); tabs **Buku 1** (articles), **Buku 2** (videos, each with its formatted description), **Buku 3** (*Jadual Pemantauan Pesakit oleh Caregiver*). Buku 3 is a list of collapsible sections in admin's order — role of the manual, target users, patient profile, usage guide, units 1–9 with their general instructions and reference charts (vital-sign table, dose times, Bristol chart, urine colours, behaviour indicators, clock-turn schedule, pain faces, fall-risk factors), and any published sections admin added.
 - **Functions:** Search (also within Buku 3); filter by topic/subtopic; open an item.
-- **Data read:** `articles` and `videos` where `visibility = published`; taxonomy (4.7). Buku 3 content is built into the app (`src/lib/buku3.ts`).
+- **Data read:** `articles` and `videos` where `visibility = published`; taxonomy (4.7); `buku3_bahagian` (published rows), merged with the built-in Manual 3 text (`src/lib/buku3.ts`). If admin's changes cannot be loaded, the built-in text is shown.
 - **States:** Loading, grid, empty, no-results.
 
 #### 3.D.7 Article/video detail — `/anak/informasi/$id`
 - **Purpose:** Read an article or watch a video.
 - **Access:** Anak.
-- **UI:** Back button; cover image; topic/subtopic badges; title; body. If a PDF exists: "Dokumen PDF" with download + embedded PDF viewer. If a YouTube URL exists: embedded video player.
+- **UI:** Back button; cover image; topic/subtopic badges; title; body (formatted rich text; older plain-text articles keep their line breaks). If a PDF exists: "Dokumen PDF" with download + embedded PDF viewer. If a YouTube URL exists: embedded video player.
 - **Functions:** Read/watch; download PDF; increment view count.
 - **Data read:** `Article` or `Video` by id.
 - **Data written:** Increment `views`.
@@ -581,14 +606,14 @@ A care service booked by admin on behalf of a family (penempah servis).
 | id, title | Identity |
 | topicId, subtopicId | Taxonomy (4.8); the subtopic must belong to the topic |
 | coverImage | Cover image URL |
-| body | Article text |
+| body | Article text: HTML from the rich-text editor, or plain text for articles written before it (both are shown correctly; HTML is sanitised when shown) |
 | pdfUrl / pdfName | Optional attached PDF |
 | youtubeUrl | Optional supporting video |
 | visibility | `published` \| `draft` |
 | views | View count |
 | createdAt | Creation date |
 
-`Video` is similar but `url` is the primary YouTube embed, `description` replaces body, and PDF is optional supporting material.
+`Video` is similar but `url` is the primary YouTube embed, `description` replaces body (same rich-text format), and PDF is optional supporting material.
 
 ### 4.9 FormLink (Borang board)
 | Field | Meaning |
@@ -600,6 +625,28 @@ A care service booked by admin on behalf of a family (penempah servis).
 | createdAt | Creation timestamp |
 | archivedAt | Set → archived (hidden from Aktif); cleared on unarchive |
 | deletedAt / deletedBy | Set → soft-deleted (visible to admin only); cleared on restore |
+
+### 4.10 Default checklist (`checklist_default`)
+| Field | Meaning |
+|-------|---------|
+| id | Always `true` — the table holds one row at most |
+| items | The default Senarai Semak: `[{id, label}]`, 1–50 items |
+| updatedAt / updatedBy | Last change and the admin who made it (set by the database) |
+
+No row means the built-in list (`DEFAULT_CHECKLIST`) applies. A care recipient's own list lives in `parent_checklists` and overrides the default for that person.
+
+### 4.11 Buku 3 section (`buku3_bahagian`)
+| Field | Meaning |
+|-------|---------|
+| id | Identity |
+| kunci | The built-in section this row changes (`peranan`, `sasaran`, `profil`, `panduan`, `rutin`, `vital`, `ubat`, `pemakanan`, `perkumuhan`, `tingkahLaku`, `posisi`, `kesakitan`, `risikoJatuh`); empty for a section admin added |
+| tajuk | Title (1–200 characters); empty on a built-in row = the manual's title |
+| kandungan | Text as rich-text HTML (up to 100,000 characters); empty on a built-in row = the manual's text |
+| urutan | Position in the book; empty on a built-in row = the manual's position |
+| visibility | `published` \| `draft`; built-in sections are always `published` |
+| createdAt, updatedAt / updatedBy | Timestamps and the admin who last changed it (set by the database) |
+
+A built-in section without a row is shown exactly as in the manual. A section admin added must have a title, text and position.
 
 ### 4.8 Reference value lists (enums) & business thresholds
 
@@ -619,9 +666,11 @@ A care service booked by admin on behalf of a family (penempah servis).
 
 **Administration routes (`CARA_PENGAMBILAN`):** Oral/Mulut · Suntikan · Topikal/Sapu · Titisan · Sedutan/Inhaler · Lain-lain.
 
+**Nationality (`WARGANEGARA_OPTIONS`):** Malaysia (default for a new Temanion) · Bukan Warganegara. **Race (`BANGSA_OPTIONS`):** Melayu · Cina · India · Bumiputera Sabah · Bumiputera Sarawak · Orang Asli · Lain-lain. A value saved before these lists existed stays selectable.
+
 **Locations (`LOKASI`, for Temanion and Penerima Servis):** Klang · Perak · Johor first, then Kedah · Kelantan · Kuala Lumpur · Labuan · Melaka · Negeri Sembilan · Pahang · Perlis · Pulau Pinang · Putrajaya · Sabah · Sarawak · Selangor · Terengganu.
 
-**Manual 3 scales (`src/lib/pemantauan.ts`):** Bristol stool types 1–7; urine colour 1–8; behaviour scales 1–5 (Mood: Sangat Ceria → Sangat Murung; Interaksi: Sangat Responsif → Sangat Pasif; Tingkah Laku: Tenang → Agresif Fizikal; Emosi: Sangat Tenang → Sangat Resah / Suka Tidur); positions Baring Terlentang (Recumbent) · Mengiring ke Kanan (Right Lateral) · Mengiring ke Kiri (Left Lateral) · Lain-lain; pain score 0–10 (Wong-Baker faces at 0, 2, 4, 6, 8, 10); 8 fall-risk factors. Interpretation rules in 5.8.
+**Manual 3 scales (`src/lib/pemantauan.ts`):** Bristol stool types 1–7; urine colour 1–8; behaviour scales 1–5 (Mood: Sangat Ceria → Sangat Murung; Interaksi: Sangat Responsif → Sangat Pasif; Tingkah Laku: Tenang → Agresif Fizikal; Emosi: Sangat Tenang → Sangat Resah / Suka Tidur); positions Baring Terlentang (Recumbent) · Mengiring ke Kanan (Right Lateral) · Mengiring ke Kiri (Left Lateral) · Lain-lain; pain score 0–10 (Wong-Baker labels at 0, 2, 4, 6, 8, 10; every score has its own drawn face, `muka-kesakitan.tsx`); 8 fall-risk factors. Interpretation rules in 5.8.
 
 **Per-vital-sign status thresholds** (each vital shows its own Normal/Amaran/Bahaya — real business rules):
 | Vital | Normal | Amaran | Bahaya |
@@ -650,9 +699,9 @@ A care service booked by admin on behalf of a family (penempah servis).
 3. Only `active` staff can log in. Admins may also create staff directly (created active).
 
 ### 5.2 Elderly registration & assignment
-- **Admin path:** Admin registers a full elderly profile (`/admin/warga-emas/baru`), optionally creating or linking a family (anak) account, and assigns a caregiver (`staffId`).
-- **Family path:** A family member submits a registration request (`/anak/daftar-warga`) → pending admin review. Admin verifies, completes the profile, and assigns a caregiver.
-- An elderly is linked to one assigned staff and one or more anak.
+- **Admin path:** Admin registers a full elderly profile (`/admin/warga-emas/baru`), optionally creating or linking a family (anak) account. The Temanion who cares for them comes from the bookings: linking the person to a booking and assigning a Temanion (`/admin/servis`) gives that Temanion access while the booking is open (5.6).
+- **Family path:** A family member submits a registration request (`/anak/daftar-warga`) → pending admin review. Admin verifies and completes the profile.
+- An elderly is linked to one or more anak. A fixed assigned staff (`staffId`) still gives access, but the app has no screen to set it; it comes from older data only.
 
 ### 5.3 Daily tracker lifecycle & edit window
 - One `TrackerRecord` per (elderly, staff, day); created on first entry of the day from the tracker hub.
@@ -668,12 +717,13 @@ A care service booked by admin on behalf of a family (penempah servis).
 5. The family sees the booking and the assigned Temanion on their Servis page.
 
 ### 5.5 Content visibility
-- Articles and videos have `published` / `draft` visibility.
+- Articles, videos and the Buku 3 sections admin added have `published` / `draft` visibility. The 13 Manual 3 sections of Buku 3 are always published.
 - Family users see **only** `published` content. Drafts are visible to admin only.
+- Rich text (articles, video descriptions, Buku 3) is sanitised when shown: only the editor's formatting (headings, bold / italic / underline, lists, links, quotes) survives, and links open in a new tab.
 - View counts increment when a family member opens an item.
 
 ### 5.6 Access scoping
-- Staff see only elderly assigned to them (`staffId`) and their own records.
+- Staff see only the elderly they look after — assigned to them (`staffId`), **or on a booking assigned to them that is pending, confirmed or ongoing** — and their own records. Access through a booking ends when it is completed or cancelled; the records they made stay theirs.
 - Family see only elderly linked to them (`anakIds`), their own bookings, and published content.
 - Admin sees everything.
 
@@ -691,7 +741,7 @@ Each entry shows its own reading; none of them changes the record's overall stat
 - **Bristol stool type:** 1–2 sembelit (Amaran) · 3–4 normal · 5–7 cirit-birit (Amaran). Any vomiting is Amaran.
 - **Behaviour & emotion:** score 1–3 Normal · 4 Amaran · 5 Bahaya, per aspect.
 - **Position change:** turn at least every 2 hours; the form pre-selects the Clock Turn Schedule position for the hour (12–2 Recumbent, 2–4 Right Lateral, 4–6 Recumbent, 6–8 Left Lateral, 8–10 Recumbent, 10–12 Right Lateral, repeating a.m./p.m.); a pressure-sore sign is shown as Amaran.
-- **Pain score:** 0–3 Normal · 4–6 Amaran · 7–10 Bahaya; labels follow Wong-Baker (an odd score takes the next face up).
+- **Pain score:** 0–3 Normal · 4–6 Amaran · 7–10 Bahaya; labels follow Wong-Baker (an odd score takes the next label up).
 - **Fall risk:** any fall → Bahaya; a near fall or at least one risk factor → Amaran; otherwise Normal. This is home guidance, not a Morse Fall Scale assessment.
 - **Time-of-day row** for display: 05:00–11:59 Pagi · 12:00–13:59 Tengah Hari · 14:00–18:59 Petang · otherwise Malam.
 
@@ -726,8 +776,13 @@ Each entry shows its own reading; none of them changes the record's overall stat
 | `/admin/warga-emas/baru` | `admin.warga-emas.baru.tsx` |
 | `/admin/warga-emas/$parentId` | `admin.warga-emas.$parentId.tsx` |
 | `/admin/tracker` | `admin.tracker.tsx` |
+| `/admin/senarai-semak` | `admin.senarai-semak.tsx` |
 | `/admin/artikel` | `admin.artikel.tsx` |
 | `/admin/video` | `admin.video.tsx` |
+| `/admin/jadual-pemantauan` | `admin.jadual-pemantauan.index.tsx` |
+| `/admin/jadual-pemantauan/baru` | `admin.jadual-pemantauan.baru.tsx` |
+| `/admin/jadual-pemantauan/$bahagianId` | `admin.jadual-pemantauan.$bahagianId.index.tsx` |
+| `/admin/jadual-pemantauan/$bahagianId/edit` | `admin.jadual-pemantauan.$bahagianId.edit.tsx` |
 | `/admin/servis` | `admin.servis.tsx` |
 | `/admin/borang` | `admin.borang.tsx` |
 | `/staf` | `staf.index.tsx` (+ `staf.tsx` layout/guard) |
@@ -759,6 +814,10 @@ Each entry shows its own reading; none of them changes the record's overall stat
 - `page-transition.tsx` — page/list entry animations.
 - `now-stamp.tsx` — current date/time stamp on entry forms.
 - `borang-page.tsx` — the Borang board, shared by `/admin/borang` and `/staf/borang`.
+- `rich-text-editor.tsx` / `rich-text.tsx` — the Quill editor for Buku 1–3 content, and its sanitised display.
+- `buku3.tsx` / `buku3-bahagian-form.tsx` / `buku3-badge.tsx` — Buku 3 for families, and admin's section form and badges.
+- `checklist-editor.tsx` — checklist list editor (a person's own list and the default list).
+- `muka-kesakitan.tsx` — the drawn pain face for any 0–10 score.
 
 ### 7.3 Demo credentials (mockup only — to be removed in production)
 | Role | Email | Password |
@@ -773,3 +832,7 @@ Each entry shows its own reading; none of them changes the record's overall stat
 - `src/lib/tracker-actions.ts` — tracker mutation helpers.
 - `src/lib/taxonomy-store.ts` — runtime-mutable content taxonomy.
 - `src/lib/form-links.ts` — Borang link filter and write helpers.
+- `src/lib/buku3.ts` / `src/lib/buku3-bahagian.ts` / `src/lib/buku3-actions.ts` — Buku 3 built-in text, merging admin's changes, and admin's writes.
+- `src/lib/checklists.ts` — checklist helpers and saves (a person's own list, the default list).
+- `src/lib/rich-text.ts` — rich-text helpers (plain text, previews, empty check, editor HTML).
+- `src/lib/jenama.ts` — the system's name ("Sistem Teman Malaysia").

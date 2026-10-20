@@ -2,6 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RegisterForm } from "./daftar-anak";
 
 export const Route = createFileRoute("/daftar-staff")({
-  head: () => ({ meta: [{ title: "Daftar Temanion — CareSenior" }] }),
+  head: () => ({ meta: [{ title: "Daftar Temanion — Sistem Teman Malaysia" }] }),
   component: () => <RegisterForm role="staff" />,
 });

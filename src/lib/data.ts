@@ -4,8 +4,11 @@
 // their rendering logic. Results are deduped/cached by React Query and scoped
 // by RLS to the logged-in user.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DEFAULT_CHECKLIST } from "@/lib/mock-data";
 import type { Caregiver, ServiceTypeOption } from "@/lib/mock-data";
 import * as db from "@/lib/db";
+import { gabungBahagian } from "@/lib/buku3-bahagian";
+import type { BahagianBuku3 } from "@/lib/buku3-bahagian";
 import {
   ACTIVITY_PHOTO_URL_TTL,
   isActivityPhotoPath,
@@ -31,6 +34,7 @@ export const qk = {
   formLinks: ["formLinks"] as const,
   myServices: ["myServices"] as const,
   checklists: ["checklists"] as const,
+  buku3: ["buku3"] as const,
 };
 
 export function useUsers() {
@@ -130,6 +134,53 @@ export function useParentChecklistQuery(parentId: string) {
     staleTime: STALE,
     enabled: !!parentId,
   });
+}
+
+/** Admin's default checklist; `data` is null while the built-in list applies. */
+export function useDefaultChecklistQuery() {
+  return useQuery({
+    queryKey: [...qk.checklists, "default"],
+    queryFn: db.fetchDefaultChecklist,
+    staleTime: STALE,
+  });
+}
+
+/**
+ * The list every resident without their own list uses: admin's default, or
+ * the built-in list until admin changes it (or while it cannot be loaded).
+ */
+export function useDefaultChecklist() {
+  return useDefaultChecklistQuery().data ?? DEFAULT_CHECKLIST;
+}
+
+/** Residents with their own checklist (admin's Senarai Semak page). */
+export function useCustomChecklistParentIdsQuery() {
+  return useQuery({
+    queryKey: [...qk.checklists, "custom"],
+    queryFn: db.fetchCustomChecklistParentIds,
+    staleTime: STALE,
+  });
+}
+
+/** Buku 3 sections in book order: the built-in text with admin's changes. */
+export function useBuku3Query() {
+  return useQuery({
+    queryKey: qk.buku3,
+    queryFn: db.fetchBuku3Bahagian,
+    staleTime: STALE,
+    select: gabungBahagian,
+  });
+}
+
+const BUKU3_ASAL_SAHAJA = gabungBahagian([]);
+
+/**
+ * The published Buku 3 sections for reading. Falls back to the built-in text
+ * while loading or if the changes cannot be loaded, so the book never blanks.
+ */
+export function useBuku3(): BahagianBuku3[] {
+  const list = useBuku3Query().data ?? BUKU3_ASAL_SAHAJA;
+  return list.filter((b) => b.visibility === "published");
 }
 
 /** Service requests that are still unresolved (pending / confirmed / ongoing). */

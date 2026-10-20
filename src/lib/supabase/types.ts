@@ -232,6 +232,30 @@ export type ParentChecklistRow = {
   updated_by: string | null;
 };
 
+// The admin-edited default checklist (migration 0014). One row at most
+// (id is always true); no row = the built-in list.
+export type ChecklistDefaultRow = {
+  id: boolean;
+  items: { id: string; label: string }[];
+  updated_at: string;
+  updated_by: string | null;
+};
+
+// Admin's edits to Buku 3 (migration 0014). With `kunci` the row changes a
+// built-in section (null fields keep the built-in value); without it the row
+// is a section admin added.
+export type Buku3BahagianRow = {
+  id: string;
+  kunci: string | null;
+  tajuk: string | null;
+  kandungan: string | null;
+  urutan: number | null;
+  visibility: ContentVisibility;
+  created_at: string;
+  updated_at: string;
+  updated_by: string | null;
+};
+
 /** One row of the `list_my_services()` RPC — an open service assigned to the caller. */
 export type MyServiceRow = {
   id: string;
@@ -292,6 +316,8 @@ export interface Database {
       subtopics: Tbl<SubtopicRow>;
       form_links: Tbl<FormLinkRow>;
       parent_checklists: Tbl<ParentChecklistRow>;
+      checklist_default: Tbl<ChecklistDefaultRow>;
+      buku3_bahagian: Tbl<Buku3BahagianRow>;
     };
     // Empty mapped type (NOT Record<string, never>, which would intersect every
     // table with `never` and break `.from()` typing).

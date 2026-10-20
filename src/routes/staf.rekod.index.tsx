@@ -17,7 +17,9 @@ function MyRecords() {
   const { user } = useAuth();
   const parents = useParents();
   const trackers = useTrackers();
-  const assigned = parents.filter((p) => p.staffId === user?.id);
+  // RLS returns the people this Temanion looks after: assigned to them, or
+  // on one of their open bookings (migration 0014).
+  const assigned = parents;
   const now = new Date();
 
   const recordFor = (pid: string) =>

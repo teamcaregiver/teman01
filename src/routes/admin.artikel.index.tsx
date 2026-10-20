@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ import {
 import { VISIBILITY_LABEL, YT_IFRAME_ALLOW, youtubeEmbed } from "@/lib/mock-data";
 import type { Article, ContentVisibility } from "@/lib/mock-data";
 import { useArticlesQuery, useInvalidate, qk } from "@/lib/data";
+import { previewText } from "@/lib/rich-text";
+import { OPENABLE_CLASS, openOnClick } from "@/lib/row-click";
 import { supabase } from "@/lib/supabase/client";
 import {
   Eye,
@@ -53,6 +55,7 @@ function ArticlesPage() {
   const articlesQ = useArticlesQuery();
   const list = articlesQ.data ?? [];
   const invalidate = useInvalidate();
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
   const [pdfPreview, setPdfPreview] = useState<Article | null>(null);
@@ -197,15 +200,24 @@ function ArticlesPage() {
                 <TableRow
                   key={a.id}
                   data-state={selected.has(a.id) ? "selected" : undefined}
+                  className={OPENABLE_CLASS}
+                  {...openOnClick(
+                    () =>
+                      void navigate({
+                        to: "/admin/artikel/$articleId",
+                        params: { articleId: a.id },
+                      }),
+                    `Buka artikel ${a.title}`,
+                  )}
                 >
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selected.has(a.id)}
                       onCheckedChange={() => toggle(a.id)}
                       aria-label={`Pilih ${a.title}`}
                     />
                   </TableCell>
-                  {/* The content cell is the row's link target. */}
+                  {/* The whole row opens the article; this link also allows a new tab. */}
                   <TableCell className="p-0">
                     <Link
                       to="/admin/artikel/$articleId"
@@ -225,7 +237,7 @@ function ArticlesPage() {
                           {a.title}
                         </p>
                         <p className="line-clamp-1 max-w-[260px] text-xs text-muted-foreground">
-                          {a.body}
+                          {previewText(a.body)}
                         </p>
                       </div>
                     </Link>
@@ -263,7 +275,7 @@ function ArticlesPage() {
                   <TableCell className="text-right text-sm tabular-nums">
                     {(a.views ?? 0).toLocaleString()}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-0.5">
                       {a.pdfUrl && (
                         <Button

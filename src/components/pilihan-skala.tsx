@@ -7,8 +7,8 @@ export type PilihanItem<T extends string | number> = {
   hint?: string;
   /** Colour swatch shown above the label (urine chart). */
   swatch?: string;
-  /** Large symbol shown above the label (pain faces). */
-  simbol?: string;
+  /** Picture shown above the label (pain faces). */
+  simbol?: React.ReactNode;
 };
 
 /**
@@ -22,6 +22,7 @@ export function PilihanSkala<T extends string | number>({
   onChange,
   options,
   className,
+  optionClassName,
   onClear,
 }: {
   label: string;
@@ -30,6 +31,8 @@ export function PilihanSkala<T extends string | number>({
   options: PilihanItem<T>[];
   /** Grid classes, e.g. "grid-cols-4 sm:grid-cols-8". */
   className?: string;
+  /** Extra classes for each option card, e.g. tighter padding for 11 choices. */
+  optionClassName?: string;
   /** Shows a "Kosongkan" button for optional questions. */
   onClear?: () => void;
 }) {
@@ -68,6 +71,7 @@ export function PilihanSkala<T extends string | number>({
                 selected
                   ? "border-primary bg-primary/5 ring-1 ring-primary"
                   : "border-border hover:bg-muted/40",
+                optionClassName,
               )}
             >
               {o.swatch && (
@@ -78,7 +82,7 @@ export function PilihanSkala<T extends string | number>({
                 />
               )}
               {o.simbol && (
-                <span className="text-2xl leading-none" aria-hidden>
+                <span className="leading-none" aria-hidden>
                   {o.simbol}
                 </span>
               )}

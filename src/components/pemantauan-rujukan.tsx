@@ -17,6 +17,7 @@ import {
   tahapKesakitan,
 } from "@/lib/pemantauan";
 import { cn } from "@/lib/utils";
+import { MukaKesakitan } from "@/components/muka-kesakitan";
 
 const TAHAP_CLS: Record<VitalStatus, string> = {
   normal: "bg-status-normal/10 text-status-normal ring-status-normal/30",
@@ -203,9 +204,7 @@ export function SkalaKesakitan() {
             TAHAP_CLS[tahapKesakitan(k.skor)],
           )}
         >
-          <span className="block text-2xl leading-none" aria-hidden>
-            {k.muka}
-          </span>
+          <MukaKesakitan skor={k.skor} className="mx-auto" />
           <span className="mt-1 block font-display text-base font-bold">
             {k.skor}
           </span>

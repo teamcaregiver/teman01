@@ -78,9 +78,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "CareSenior — Sistem Penjagaan Warga Emas" },
+      { title: "Sistem Teman Malaysia — Penjagaan Warga Emas" },
       { name: "description", content: "Platform pengurusan penjagaan warga emas untuk admin, Temanion, dan keluarga." },
-      { property: "og:title", content: "CareSenior" },
+      { property: "og:title", content: "Sistem Teman Malaysia" },
       { property: "og:description", content: "Platform pengurusan penjagaan warga emas." },
       { property: "og:type", content: "website" },
     ],

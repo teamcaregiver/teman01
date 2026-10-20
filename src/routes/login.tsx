@@ -12,7 +12,7 @@ import { DEMO_CREDENTIALS, signInWithEmail } from "@/lib/auth-store";
 import type { Role } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Log Masuk — CareSenior" }] }),
+  head: () => ({ meta: [{ title: "Log Masuk — Sistem Teman Malaysia" }] }),
   component: LoginPage,
 });
 

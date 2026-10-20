@@ -3,7 +3,9 @@
 // each unit's general instructions (arahan am) are repeated on the matching
 // staff form. Scales and charts live in src/lib/pemantauan.ts and the vital
 // thresholds in src/lib/mock-data.ts, so the book and the forms never differ.
-// Update the text here when the final manual is ready.
+// This is the built-in text: since issue #10 admin can change each section's
+// title and text on the Jadual Pemantauan page (src/lib/buku3-bahagian.ts),
+// and a changed section no longer follows edits made here.
 
 export const BUKU3_TAJUK = "Jadual Pemantauan Pesakit oleh Caregiver";
 
@@ -58,6 +60,10 @@ export const BUKU3_SASARAN = [
   "Pelatih dalam bidang penjagaan.",
   "Pengendali pusat jagaan warga emas dan pesakit kronik.",
 ];
+
+export const BUKU3_SASARAN_PENUTUP =
+  "Manual ini dapat membantu memastikan penjagaan pesakit dilaksanakan secara lebih teratur, " +
+  "profesional dan berfokus kepada kesejahteraan pesakit serta caregiver.";
 
 export const BUKU3_PROFIL = {
   arahan: [

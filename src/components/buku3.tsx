@@ -14,12 +14,10 @@ import {
   SkalaKesakitan,
   SkalaTingkahLaku,
 } from "@/components/pemantauan-rujukan";
+import { RichText } from "@/components/rich-text";
 import {
-  BUKU3_PANDUAN,
   BUKU3_PENGENALAN,
-  BUKU3_PERANAN,
   BUKU3_PROFIL,
-  BUKU3_SASARAN,
   BUKU3_TAJUK,
   BUKU3_UNIT,
   KATEGORI_UBAT,
@@ -29,21 +27,18 @@ import {
   WAKTU_DOS,
   WAKTU_MAKAN_BUKU3,
 } from "@/lib/buku3";
-import type { Buku3Unit, Buku3UnitId } from "@/lib/buku3";
+import { teksBahagian } from "@/lib/buku3-bahagian";
+import type { BahagianBuku3, Buku3Kunci } from "@/lib/buku3-bahagian";
+import { useBuku3 } from "@/lib/data";
 import { matchesSearch } from "@/lib/search";
-
-type Bahagian = {
-  id: string;
-  tajuk: string;
-  /** Text searched by the page's search box. */
-  teks: string[];
-  isi: React.ReactNode;
-};
 
 /** Buku 3 — the monitoring-table manual, as a reference for families. */
 export function Buku3({ query = "" }: { query?: string }) {
-  const bahagian = senaraiBahagian().filter((b) =>
-    matchesSearch([b.tajuk, ...b.teks], query),
+  const bahagian = useBuku3().filter((b) =>
+    matchesSearch(
+      [...teksBahagian(b), ...(b.kunci ? (TEKS_RUJUKAN[b.kunci] ?? []) : [])],
+      query,
+    ),
   );
 
   return (
@@ -86,7 +81,7 @@ export function Buku3({ query = "" }: { query?: string }) {
                   {b.tajuk}
                 </AccordionTrigger>
                 <AccordionContent className="space-y-3">
-                  {b.isi}
+                  <IsiBahagian bahagian={b} />
                 </AccordionContent>
               </AccordionItem>
             ))}
@@ -97,71 +92,19 @@ export function Buku3({ query = "" }: { query?: string }) {
   );
 }
 
-function senaraiBahagian(): Bahagian[] {
-  return [
-    {
-      id: "peranan",
-      tajuk: "Peranan Utama Manual",
-      teks: BUKU3_PERANAN.flatMap((p) => [p.tajuk, p.huraian]),
-      isi: (
-        <ul className="space-y-2">
-          {BUKU3_PERANAN.map((p) => (
-            <li key={p.tajuk} className="rounded-lg bg-muted/40 p-3">
-              <p className="text-xs font-semibold">{p.tajuk}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {p.huraian}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ),
-    },
-    {
-      id: "sasaran",
-      tajuk: "Sasaran Pengguna Manual",
-      teks: BUKU3_SASARAN,
-      isi: (
-        <>
-          <Senarai item={BUKU3_SASARAN} />
-          <p className="text-xs text-muted-foreground">
-            Manual ini dapat membantu memastikan penjagaan pesakit dilaksanakan
-            secara lebih teratur, profesional dan berfokus kepada kesejahteraan
-            pesakit serta caregiver.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: "profil",
-      tajuk: "Profil dan Maklumat Pesakit",
-      teks: [...BUKU3_PROFIL.arahan, ...BUKU3_PROFIL.baris.flat()],
-      isi: (
-        <>
-          <Arahan item={BUKU3_PROFIL.arahan} />
-          <Jadual
-            lajur={["Perkara", "Catatan tambahan"]}
-            baris={BUKU3_PROFIL.baris.map(([a, b]) => [a, b || "—"])}
-          />
-        </>
-      ),
-    },
-    {
-      id: "panduan",
-      tajuk: "Panduan Penggunaan Manual 3",
-      teks: BUKU3_PANDUAN,
-      isi: <Senarai item={BUKU3_PANDUAN} bernombor />,
-    },
-    ...BUKU3_UNIT.map((u) => ({
-      id: u.id,
-      tajuk: `Unit ${u.unit}: ${u.tajuk}`,
-      teks: [...u.arahan, ...(TEKS_RUJUKAN[u.id] ?? [])],
-      isi: <UnitIsi unit={u} />,
-    })),
-  ];
+/** A section as families read it: its text, then the charts built into it. */
+export function IsiBahagian({ bahagian: b }: { bahagian: BahagianBuku3 }) {
+  return (
+    <>
+      <RichText content={b.kandungan} className="text-xs" />
+      {b.kunci && <RujukanBahagian kunci={b.kunci} />}
+    </>
+  );
 }
 
-// Words in each unit's reference block, so the search box finds them too.
-const TEKS_RUJUKAN: Partial<Record<Buku3UnitId, string[]>> = {
+// Words in each reference block, so the search box finds them too.
+const TEKS_RUJUKAN: Partial<Record<Buku3Kunci, string[]>> = {
+  profil: BUKU3_PROFIL.baris.flat(),
   rutin: RUTIN_HARIAN,
   vital: RUJUKAN_VITAL.map((v) => v.parameter),
   ubat: [...KATEGORI_UBAT, ...NOTA_UBAT],
@@ -173,16 +116,23 @@ const TEKS_RUJUKAN: Partial<Record<Buku3UnitId, string[]>> = {
   risikoJatuh: ["jatuh", "Morse Fall Scale"],
 };
 
-function UnitIsi({ unit: u }: { unit: Buku3Unit }) {
+/** The charts and tables that stay with a built-in section (not editable). */
+function RujukanBahagian({ kunci }: { kunci: Buku3Kunci }) {
+  const sumber = BUKU3_UNIT.find((u) => u.id === kunci)?.sumber;
   return (
     <>
-      <Arahan item={u.arahan} />
-      {u.id === "rutin" && (
+      {kunci === "profil" && (
+        <Jadual
+          lajur={["Perkara", "Catatan tambahan"]}
+          baris={BUKU3_PROFIL.baris.map(([a, b]) => [a, b || "—"])}
+        />
+      )}
+      {kunci === "rutin" && (
         <Blok tajuk="Cadangan rutin harian">
           <Senarai item={RUTIN_HARIAN} bernombor />
         </Blok>
       )}
-      {u.id === "vital" && (
+      {kunci === "vital" && (
         <Blok tajuk="Rujukan bacaan & interpretasi tanda vital">
           <Jadual
             lajur={["Parameter", "Normal", "Amaran", "Bahaya", "Tindakan"]}
@@ -196,7 +146,7 @@ function UnitIsi({ unit: u }: { unit: Buku3Unit }) {
           />
         </Blok>
       )}
-      {u.id === "ubat" && (
+      {kunci === "ubat" && (
         <>
           <Blok tajuk="Kategori ubat">
             <Senarai item={KATEGORI_UBAT} />
@@ -214,12 +164,12 @@ function UnitIsi({ unit: u }: { unit: Buku3Unit }) {
           </Blok>
         </>
       )}
-      {u.id === "pemakanan" && (
+      {kunci === "pemakanan" && (
         <Blok tajuk="Waktu makan dalam jadual">
           <Senarai item={WAKTU_MAKAN_BUKU3} />
         </Blok>
       )}
-      {u.id === "perkumuhan" && (
+      {kunci === "perkumuhan" && (
         <>
           <Blok tajuk="Carta najis (Bristol Stool Chart)">
             <CartaBristol />
@@ -229,38 +179,30 @@ function UnitIsi({ unit: u }: { unit: Buku3Unit }) {
           </Blok>
         </>
       )}
-      {u.id === "tingkahLaku" && (
+      {kunci === "tingkahLaku" && (
         <Blok tajuk="Indikator pemerhatian">
           <SkalaTingkahLaku />
         </Blok>
       )}
-      {u.id === "posisi" && (
+      {kunci === "posisi" && (
         <Blok tajuk="Carta penukaran posisi berkala (Clock Turn Schedule)">
           <JadualPusingan />
         </Blok>
       )}
-      {u.id === "kesakitan" && (
+      {kunci === "kesakitan" && (
         <Blok tajuk="Wong-Baker FACES Pain Rating Scale">
           <SkalaKesakitan />
         </Blok>
       )}
-      {u.id === "risikoJatuh" && (
+      {kunci === "risikoJatuh" && (
         <Blok tajuk="Faktor risiko">
           <FaktorRisikoJatuh />
         </Blok>
       )}
-      {u.sumber && (
-        <p className="text-[11px] text-muted-foreground">Sumber: {u.sumber}</p>
+      {sumber && (
+        <p className="text-[11px] text-muted-foreground">Sumber: {sumber}</p>
       )}
     </>
-  );
-}
-
-function Arahan({ item }: { item: string[] }) {
-  return (
-    <Blok tajuk="Arahan am">
-      <Senarai item={item} bernombor />
-    </Blok>
   );
 }
 

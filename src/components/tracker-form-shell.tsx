@@ -2,8 +2,10 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { BookOpenCheck, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NowStamp } from "@/components/now-stamp";
-import { unitBuku3 } from "@/lib/buku3";
+import { RichText } from "@/components/rich-text";
 import type { Buku3UnitId } from "@/lib/buku3";
+import { bahagianAsal } from "@/lib/buku3-bahagian";
+import { useBuku3 } from "@/lib/data";
 
 /**
  * Frame shared by the Manual 3 monitoring forms: back link, who the record is
@@ -28,7 +30,8 @@ export function TrackerFormShell({
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
-  const u = unitBuku3(unit);
+  // The unit's section as admin last saved it (Jadual Pemantauan page).
+  const panduan = useBuku3().find((b) => b.kunci === unit) ?? bahagianAsal(unit)!;
   const back = () =>
     navigate({ to: "/staf/tracker/$parentId", params: { parentId } });
 
@@ -55,7 +58,7 @@ export function TrackerFormShell({
       <details className="group rounded-xl border border-border/60 bg-card p-3 text-xs">
         <summary className="flex cursor-pointer list-none items-center gap-2 font-medium">
           <BookOpenCheck className="h-4 w-4 shrink-0 text-teal" />
-          Panduan Buku 3 · Unit {u.unit}: {u.tajuk}
+          Panduan Buku 3 · {panduan.tajuk}
           <span className="ml-auto text-muted-foreground group-open:hidden">
             Lihat
           </span>
@@ -63,11 +66,10 @@ export function TrackerFormShell({
             Tutup
           </span>
         </summary>
-        <ol className="mt-3 list-decimal space-y-1 pl-5 leading-relaxed text-muted-foreground">
-          {u.arahan.map((a) => (
-            <li key={a}>{a}</li>
-          ))}
-        </ol>
+        <RichText
+          content={panduan.kandungan}
+          className="mt-3 text-muted-foreground"
+        />
       </details>
 
       {children}

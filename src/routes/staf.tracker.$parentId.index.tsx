@@ -4,7 +4,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { DEFAULT_CHECKLIST } from "@/lib/mock-data";
 import {
   pickTodayRecord,
   setChecklist,
@@ -15,6 +14,7 @@ import {
   useTrackers,
   useInvalidate,
   useParentChecklistQuery,
+  useDefaultChecklist,
   qk,
 } from "@/lib/data";
 import { mergeChecklist } from "@/lib/checklists";
@@ -83,9 +83,11 @@ function TrackerHome() {
 
   const today = pickTodayRecord(trackers, parentId, staffId);
 
-  // This resident's own checklist items, or the default list until edited.
+  // This resident's own checklist items, or the default list (admin's
+  // Senarai Semak page) until edited.
   const checklistQ = useParentChecklistQuery(parentId);
-  const template = checklistQ.data ?? DEFAULT_CHECKLIST;
+  const defaultItems = useDefaultChecklist();
+  const template = checklistQ.data ?? defaultItems;
 
   const [tab, setTab] = useState<"rekod" | "checklist">("rekod");
   const [editingList, setEditingList] = useState(false);
@@ -101,11 +103,11 @@ function TrackerHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today?.id]);
 
-  // The list itself changed (loaded or edited): keep the ticks already made.
+  // The list itself changed (loaded or edited, here or as the default):
+  // keep the ticks already made.
   useEffect(() => {
     setLocalChecklist((prev) => mergeChecklist(template, prev));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checklistQ.data]);
+  }, [template]);
 
   if (!parent)
     return <p>{parents.length === 0 ? "Memuatkan…" : "Warga emas tidak dijumpai."}</p>;

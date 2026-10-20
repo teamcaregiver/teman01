@@ -15,14 +15,17 @@ import {
   Heart,
   Users,
   BookOpen,
+  BookOpenCheck,
   Video,
   Activity,
   ClipboardList,
   ClipboardPen,
+  ListChecks,
   LogOut,
   LayoutDashboard,
   HeartHandshake,
 } from "lucide-react";
+import { NAMA_SISTEM } from "@/lib/jenama";
 import { signOut, useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,16 +38,19 @@ const initialsOf = (name?: string) =>
     .map((n) => n[0]?.toUpperCase())
     .join("");
 
-// Day-to-day operations first; education content (Artikel, Video) last.
+// Day-to-day operations first; education content (Buku 1–3: Artikel, Video,
+// Jadual Pemantauan) last.
 const adminNav = [
   { title: "Ringkasan", url: "/admin", icon: LayoutDashboard, exact: true },
   { title: "Pengurusan Temanion", url: "/admin/staff", icon: Users },
   { title: "Penerima Servis", url: "/admin/warga-emas", icon: Heart },
   { title: "Rekod Harian", url: "/admin/tracker", icon: Activity },
+  { title: "Senarai Semak", url: "/admin/senarai-semak", icon: ListChecks },
   { title: "Servis Monitoring", url: "/admin/servis", icon: HeartHandshake },
   { title: "Borang", url: "/admin/borang", icon: ClipboardPen },
   { title: "Artikel", url: "/admin/artikel", icon: BookOpen },
   { title: "Video", url: "/admin/video", icon: Video },
+  { title: "Jadual Pemantauan", url: "/admin/jadual-pemantauan", icon: BookOpenCheck },
 ];
 
 const staffNav = [
@@ -71,7 +77,7 @@ export function AppSidebar({ variant }: { variant: "admin" | "staff" }) {
           </div>
           <div className="min-w-0">
             <p className="truncate font-display text-sm font-bold">
-              CareSenior
+              {NAMA_SISTEM}
             </p>
             <p className="truncate text-xs text-muted-foreground capitalize">
               {variant === "admin" ? "Admin" : "Temanion"}

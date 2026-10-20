@@ -14,7 +14,9 @@ import {
   HeartHandshake,
   MapPin,
   CalendarDays,
+  ChevronRight,
   Inbox,
+  Info,
   RefreshCw,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -35,8 +37,9 @@ function StaffHome() {
   const parents = useParents();
   const trackers = useTrackers();
   const servicesQ = useMyServicesQuery();
-  const assigned = parents.filter((p) => p.staffId === user?.id);
-  const assignedIds = new Set(assigned.map((p) => p.id));
+  // RLS returns exactly the people this Temanion looks after: assigned to
+  // them, or on one of their open bookings (migration 0014).
+  const assignedIds = new Set(parents.map((p) => p.id));
   const myRecords = trackers.filter((t) => t.staffId === user?.id);
   const today = new Date().toDateString();
   const todayCount = myRecords.filter(
@@ -63,7 +66,7 @@ function StaffHome() {
             <StatCard
               tone="teal"
               label="Penerima Servis"
-              value={assigned.length}
+              value={parents.length}
               icon={<Heart className="h-4 w-4" />}
             />
           </StaggerItem>
@@ -128,43 +131,65 @@ function StaffHome() {
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
-            {services.map((s) => (
-              <Card key={s.id} className="hover-lift border-border/60 p-4">
-                <p className="truncate font-display font-semibold">
-                  {s.clientName ??
-                    (s.bookedBy ? `Tempahan oleh ${s.bookedBy}` : "Tanpa nama")}
-                </p>
-                <dl className="mt-2 space-y-1.5 text-xs">
-                  <ServiceField
-                    icon={<HeartHandshake className="h-3.5 w-3.5" />}
-                    label="Servis"
-                    value={s.serviceName}
-                  />
-                  <ServiceField
-                    icon={<MapPin className="h-3.5 w-3.5" />}
-                    label="Lokasi"
-                    value={s.location || "—"}
-                  />
-                  <ServiceField
-                    icon={<CalendarDays className="h-3.5 w-3.5" />}
-                    label="Tarikh servis"
-                    value={serviceDate(s)}
-                  />
-                </dl>
-                {s.parentId && assignedIds.has(s.parentId) && (
-                  <div className="mt-3 flex justify-end">
-                    <Button asChild size="sm">
-                      <Link
-                        to="/staf/tracker/$parentId"
-                        params={{ parentId: s.parentId }}
-                      >
-                        Rekod Baru
-                      </Link>
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            ))}
+            {services.map((s) => {
+              const body = (
+                <>
+                  <p className="truncate font-display font-semibold">
+                    {s.clientName ??
+                      (s.bookedBy ? `Tempahan oleh ${s.bookedBy}` : "Tanpa nama")}
+                  </p>
+                  <dl className="mt-2 space-y-1.5 text-xs">
+                    <ServiceField
+                      icon={<HeartHandshake className="h-3.5 w-3.5" />}
+                      label="Servis"
+                      value={s.serviceName}
+                    />
+                    <ServiceField
+                      icon={<MapPin className="h-3.5 w-3.5" />}
+                      label="Lokasi"
+                      value={s.location || "—"}
+                    />
+                    <ServiceField
+                      icon={<CalendarDays className="h-3.5 w-3.5" />}
+                      label="Tarikh servis"
+                      value={serviceDate(s)}
+                    />
+                  </dl>
+                </>
+              );
+
+              // The whole card opens the person's Rekod Harian.
+              if (s.parentId && assignedIds.has(s.parentId))
+                return (
+                  <Link
+                    key={s.id}
+                    to="/staf/tracker/$parentId"
+                    params={{ parentId: s.parentId }}
+                    aria-label={`Buka Rekod Harian ${s.clientName ?? "penerima servis"}`}
+                    className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Card className="hover-lift h-full border-border/60 p-4">
+                      {body}
+                      <p className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-primary">
+                        Buka Rekod Harian
+                        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </p>
+                    </Card>
+                  </Link>
+                );
+
+              return (
+                <Card key={s.id} className="border-border/60 p-4">
+                  {body}
+                  <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {s.parentId
+                      ? "Rekod Harian penerima servis ini belum boleh dibuka. Hubungi admin."
+                      : "Penerima servis belum dipautkan pada tempahan ini. Minta admin pautkan di Servis Monitoring."}
+                  </p>
+                </Card>
+              );
+            })}
           </div>
         )}
       </Card>

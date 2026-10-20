@@ -18,7 +18,9 @@ import { supabase } from "@/lib/supabase/client";
 import { adminCreateUser } from "@/lib/admin-users";
 import { qk } from "@/lib/data";
 import { SEMUA_LOKASI, matchesLokasi } from "@/lib/lokasi";
+import { OPENABLE_CLASS, openOnClick } from "@/lib/row-click";
 import { matchesSearch } from "@/lib/search";
+import { cn } from "@/lib/utils";
 import {
   BUTIRAN_KOSONG,
   STAFF_COLUMNS,
@@ -311,7 +313,11 @@ function StaffPage() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className={cn(
+                  "flex flex-col gap-3 p-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between",
+                  OPENABLE_CLASS,
+                )}
+                {...openOnClick(() => setProfileId(u.id), `Lihat profil ${u.name}`)}
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full gradient-teal font-display text-sm font-bold text-teal-foreground">

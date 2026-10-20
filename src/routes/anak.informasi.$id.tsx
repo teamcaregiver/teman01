@@ -2,6 +2,7 @@ import { createFileRoute, useParams, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { YT_IFRAME_ALLOW, youtubeEmbed } from "@/lib/mock-data";
 import { fetchArticleById } from "@/lib/db";
+import { RichText } from "@/components/rich-text";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,11 +44,7 @@ function ArticleDetail() {
       <h1 className="font-display text-2xl font-bold leading-tight">
         {a.title}
       </h1>
-      {a.body && (
-        <div className="prose prose-sm max-w-none whitespace-pre-line text-foreground/90">
-          {a.body}
-        </div>
-      )}
+      <RichText content={a.body} className="text-sm text-foreground/90" />
 
       {/* PDF shown as the main readable content, with download as a secondary action. */}
       {a.pdfUrl && (

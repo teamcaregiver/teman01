@@ -74,32 +74,22 @@ export function TemanionFields({
           </Select>
         </Field>
         <Field label="Warganegara" htmlFor={`${id}-warganegara`}>
-          <Input
+          <PilihSenarai
             id={`${id}-warganegara`}
-            list={`${id}-warganegara-list`}
             value={value.warganegara}
-            onChange={(e) => onChange({ warganegara: e.target.value })}
-            placeholder="Cth: Malaysia"
+            onChange={(warganegara) => onChange({ warganegara })}
+            options={WARGANEGARA_OPTIONS}
+            placeholder="Pilih warganegara"
           />
-          <datalist id={`${id}-warganegara-list`}>
-            {WARGANEGARA_OPTIONS.map((w) => (
-              <option key={w} value={w} />
-            ))}
-          </datalist>
         </Field>
         <Field label="Bangsa" htmlFor={`${id}-bangsa`}>
-          <Input
+          <PilihSenarai
             id={`${id}-bangsa`}
-            list={`${id}-bangsa-list`}
             value={value.bangsa}
-            onChange={(e) => onChange({ bangsa: e.target.value })}
-            placeholder="Cth: Melayu"
+            onChange={(bangsa) => onChange({ bangsa })}
+            options={BANGSA_OPTIONS}
+            placeholder="Pilih bangsa"
           />
-          <datalist id={`${id}-bangsa-list`}>
-            {BANGSA_OPTIONS.map((b) => (
-              <option key={b} value={b} />
-            ))}
-          </datalist>
         </Field>
       </div>
 
@@ -148,6 +138,45 @@ export function TemanionFields({
         )}
       </Field>
     </div>
+  );
+}
+
+// Radix Select cannot hold an empty value, so "not set" has its own key.
+const BELUM = "__belum__";
+
+/**
+ * One value from a fixed list, in the same dropdown style as Peranan and
+ * Jantina; "" means not set. A value typed before the list existed (these
+ * were free-text fields) stays selectable.
+ */
+function PilihSenarai({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  placeholder: string;
+}) {
+  const all = value && !options.includes(value) ? [...options, value] : options;
+  return (
+    <Select value={value || BELUM} onValueChange={(v) => onChange(v === BELUM ? "" : v)}>
+      <SelectTrigger id={id}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={BELUM}>Belum ditetapkan</SelectItem>
+        {all.map((o) => (
+          <SelectItem key={o} value={o}>
+            {o}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

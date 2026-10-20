@@ -10,7 +10,7 @@ import { signUpAnak } from "@/lib/auth-store";
 import { applyAsStaff } from "@/lib/admin-users";
 
 export const Route = createFileRoute("/daftar-anak")({
-  head: () => ({ meta: [{ title: "Daftar Anak — CareSenior" }] }),
+  head: () => ({ meta: [{ title: "Daftar Anak — Sistem Teman Malaysia" }] }),
   component: () => <RegisterForm role="anak" />,
 });
 

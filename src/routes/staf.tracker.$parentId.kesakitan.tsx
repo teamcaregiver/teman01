@@ -4,27 +4,24 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PilihanSkala } from "@/components/pilihan-skala";
+import { MukaKesakitan } from "@/components/muka-kesakitan";
 import { TahapPill } from "@/components/pemantauan-rujukan";
 import { FieldLabel, TrackerFormShell } from "@/components/tracker-form-shell";
 import { useParents } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
 import { useSimpanPemantauan } from "@/hooks/use-simpan-pemantauan";
-import {
-  SKALA_KESAKITAN,
-  labelKesakitan,
-  tahapKesakitan,
-} from "@/lib/pemantauan";
+import { labelKesakitan, tahapKesakitan } from "@/lib/pemantauan";
 import type { KesakitanEntry } from "@/lib/pemantauan";
 
 export const Route = createFileRoute("/staf/tracker/$parentId/kesakitan")({
   component: KesakitanForm,
 });
 
-// 0–10; the Wong-Baker face sits on the even scores.
+// 0–10, each with its own face (Wong-Baker style), green to red.
 const PILIHAN_SKOR = Array.from({ length: 11 }, (_, skor) => ({
   value: skor,
   label: String(skor),
-  simbol: SKALA_KESAKITAN.find((k) => k.skor === skor)?.muka,
+  simbol: <MukaKesakitan skor={skor} />,
 }));
 
 function KesakitanForm() {
@@ -76,15 +73,33 @@ function KesakitanForm() {
           Minta pesakit menunjukkan tahap kesakitan berdasarkan muka di bawah
           (Wong-Baker FACES).
         </p>
-        <PilihanSkala
-          label="Skor kesakitan (0–10) *"
-          value={skor}
-          onChange={setSkor}
-          className="grid-cols-4 sm:grid-cols-6 md:grid-cols-11"
-          options={PILIHAN_SKOR}
-        />
+        <div className="space-y-2">
+          <PilihanSkala
+            label="Skor kesakitan (0–10) *"
+            value={skor}
+            onChange={setSkor}
+            className="grid-cols-4 sm:grid-cols-6 md:grid-cols-11"
+            optionClassName="items-center p-2 text-center"
+            options={PILIHAN_SKOR}
+          />
+          {/* The scale's direction, in the faces' colours. */}
+          <div aria-hidden>
+            <div
+              className="h-1.5 rounded-full"
+              style={{
+                background:
+                  "linear-gradient(to right, hsl(135, 70%, 62%), hsl(60, 85%, 60%), hsl(0, 75%, 62%))",
+              }}
+            />
+            <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+              <span>Tiada sakit</span>
+              <span>Sakit sangat teruk</span>
+            </div>
+          </div>
+        </div>
         {skor !== undefined && (
           <p className="flex items-center gap-2 text-xs">
+            <MukaKesakitan skor={skor} className="h-6 w-6" />
             Skor {skor}:{" "}
             <TahapPill
               tahap={tahapKesakitan(skor)}

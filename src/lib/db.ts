@@ -20,7 +20,9 @@ import type {
 import type {
   ArticleRow,
   BookingRow,
+  Buku3BahagianRow,
   CaregiverRow,
+  ChecklistDefaultRow,
   FormLinkRow,
   MedicationRow,
   MyServiceRow,
@@ -367,6 +369,31 @@ export async function fetchParentChecklist(
   if (error) throw new Error(error.message);
   const items = (data as ParentChecklistRow | null)?.items;
   return items?.length ? items : null;
+}
+
+/** Ids of the residents that have their own list (admin only, via RLS). */
+export async function fetchCustomChecklistParentIds(): Promise<string[]> {
+  const { data, error } = await supabase.from("parent_checklists").select("parent_id");
+  return unwrap<Pick<ParentChecklistRow, "parent_id">[]>(data, error).map((r) => r.parent_id);
+}
+
+// ---------- default checklist (migration 0014) ----------
+/** Admin's default checklist, or null while the built-in list applies. */
+export async function fetchDefaultChecklist(): Promise<{ id: string; label: string }[] | null> {
+  const { data, error } = await supabase
+    .from("checklist_default")
+    .select("items")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const items = (data as Pick<ChecklistDefaultRow, "items"> | null)?.items;
+  return items?.length ? items : null;
+}
+
+// ---------- Buku 3 sections (migration 0014) ----------
+/** Admin's changes to Buku 3; drafts only reach admin (RLS). See buku3-bahagian.ts. */
+export async function fetchBuku3Bahagian(): Promise<Buku3BahagianRow[]> {
+  const { data, error } = await supabase.from("buku3_bahagian").select("*");
+  return unwrap<Buku3BahagianRow[]>(data, error);
 }
 
 // ---------- content ----------

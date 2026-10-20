@@ -15,7 +15,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { RichText } from "@/components/rich-text";
 import { fetchArticleById } from "@/lib/db";
+import { isBlank } from "@/lib/rich-text";
 import { supabase } from "@/lib/supabase/client";
 import { useInvalidate, qk } from "@/lib/data";
 import {
@@ -159,14 +161,12 @@ function ArticleDetail() {
       </div>
 
       {/* Body */}
-      {a.body?.trim() ? (
+      {!isBlank(a.body) ? (
         <Card className="border-border/60 p-6">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Kandungan Artikel
           </h2>
-          <div className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">
-            {a.body}
-          </div>
+          <RichText content={a.body} className="text-sm text-foreground/90" />
         </Card>
       ) : (
         !a.pdfUrl && (

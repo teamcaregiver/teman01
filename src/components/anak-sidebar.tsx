@@ -5,6 +5,7 @@ import { signOut, useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { NAMA_SISTEM } from "@/lib/jenama";
 
 const initialsOf = (name?: string) =>
   (name ?? "")
@@ -26,7 +27,7 @@ export function AnakSidebar() {
           <Heart className="h-5 w-5 text-teal-foreground" />
         </div>
         <div className="min-w-0">
-          <p className="truncate font-display text-sm font-bold leading-tight">CareSenior</p>
+          <p className="truncate font-display text-sm font-bold leading-tight">{NAMA_SISTEM}</p>
           <p className="truncate text-xs text-muted-foreground">{user?.name}</p>
         </div>
       </div>

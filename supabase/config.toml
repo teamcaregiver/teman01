@@ -9,3 +9,10 @@ project_id = "xuvpeltbatoiguggsimo"
 # check inside the function for the privileged actions.
 [functions.admin-users]
 verify_jwt = false
+
+# drive-files serves file bytes to <img>/<a> tags, which can't send a JWT, and
+# its CORS preflight carries no Authorization header either. The function
+# verifies the caller's JWT itself for upload/sign/delete, and GET requires an
+# HMAC-signed link for private files. See docs/GOOGLE-DRIVE-STORAGE.md.
+[functions.drive-files]
+verify_jwt = false

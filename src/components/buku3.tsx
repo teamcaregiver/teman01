@@ -15,6 +15,7 @@ import {
   SkalaTingkahLaku,
 } from "@/components/pemantauan-rujukan";
 import { RichText } from "@/components/rich-text";
+import { PdfButtons, VideoEmbed } from "@/components/content-attachments";
 import {
   BUKU3_PENGENALAN,
   BUKU3_PROFIL,
@@ -92,12 +93,42 @@ export function Buku3({ query = "" }: { query?: string }) {
   );
 }
 
-/** A section as families read it: its text, then the charts built into it. */
-export function IsiBahagian({ bahagian: b }: { bahagian: BahagianBuku3 }) {
+/**
+ * A section as families read it: cover, text, the charts built into it, then
+ * its PDF and video. `lampiran={false}` leaves out the cover, PDF and video
+ * for pages that show those in their own cards.
+ */
+export function IsiBahagian({
+  bahagian: b,
+  lampiran = true,
+}: {
+  bahagian: BahagianBuku3;
+  lampiran?: boolean;
+}) {
   return (
     <>
+      {lampiran && b.coverImage && (
+        <div className="aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted">
+          <img
+            src={b.coverImage}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
       <RichText content={b.kandungan} className="text-xs" />
       {b.kunci && <RujukanBahagian kunci={b.kunci} />}
+      {lampiran && b.pdfUrl && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3">
+          <span className="min-w-0 truncate text-xs text-muted-foreground">
+            {b.pdfName || "lampiran.pdf"}
+          </span>
+          <PdfButtons url={b.pdfUrl} name={b.pdfName} />
+        </div>
+      )}
+      {lampiran && b.youtubeUrl && (
+        <VideoEmbed url={b.youtubeUrl} title={b.tajuk} />
+      )}
     </>
   );
 }

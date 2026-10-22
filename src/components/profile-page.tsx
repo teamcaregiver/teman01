@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase/client";
 import { refreshCurrentUser, useAuth } from "@/lib/auth-store";
-import { IMAGE_ACCEPT, uploadAvatar, validateImageFile } from "@/lib/storage";
+import { IMAGE_ACCEPT, removeAvatarFile, uploadAvatar, validateImageFile } from "@/lib/storage";
 import { toast } from "sonner";
 import { AlertCircle, Trash2, Upload } from "lucide-react";
 
@@ -82,13 +82,17 @@ export function ProfilePage() {
     setUploadError(null);
     setUploading(true);
     try {
-      const { url } = await uploadAvatar(file, user.id);
+      const { url, path } = await uploadAvatar(file, user.id);
       // Persist immediately so the sidebar updates without needing Save.
       const { error } = await supabase
         .from("profiles")
         .update({ avatar_url: url })
         .eq("id", user.id);
-      if (error) throw new Error(error.message);
+      if (error) {
+        // Nothing points at the new photo, so don't leave it behind in storage.
+        void removeAvatarFile(path).catch(() => {});
+        throw new Error(error.message);
+      }
       setAvatar(url);
       setAvatarBroken(false);
       await refreshCurrentUser();

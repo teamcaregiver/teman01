@@ -21,7 +21,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import { VISIBILITY_LABEL } from "@/lib/mock-data";
+import { CoverImageField } from "@/components/cover-image-field";
+import { PdfField, YoutubeField } from "@/components/content-attachments";
+import { VISIBILITY_LABEL, isYoutubeInvalid } from "@/lib/mock-data";
 import type { ContentVisibility } from "@/lib/mock-data";
 import {
   BORANG_TEMANION,
@@ -69,6 +71,7 @@ export function Buku3BahagianForm({
 }: Props) {
   const [form, setForm] = useState<BahagianForm>(initial);
   const [saving, setSaving] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
@@ -117,6 +120,10 @@ export function Buku3BahagianForm({
       toast.error("Sila isi kandungan bahagian.");
       return;
     }
+    if (isYoutubeInvalid(form.youtubeUrl)) {
+      toast.error("Pautan YouTube tidak sah.");
+      return;
+    }
     if (form.kandungan.length > KANDUNGAN_MAX) {
       toast.error(
         "Kandungan terlalu panjang. Pecahkan kepada beberapa bahagian.",
@@ -156,72 +163,103 @@ export function Buku3BahagianForm({
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           <SectionCard title="Maklumat Bahagian">
-            <Field label="Tajuk Bahagian *">
-              <Input
-                value={form.tajuk}
-                maxLength={TAJUK_MAX}
-                onChange={(e) => set("tajuk", e.target.value)}
-                placeholder="Cth: Unit 10: Penjagaan Kulit"
+            <div className="space-y-4">
+              <Field label="Tajuk Bahagian *">
+                <Input
+                  value={form.tajuk}
+                  maxLength={TAJUK_MAX}
+                  onChange={(e) => set("tajuk", e.target.value)}
+                  placeholder="Cth: Unit 10: Penjagaan Kulit"
+                />
+              </Field>
+              <CoverImageField
+                value={form.coverImage}
+                onChange={(url) => set("coverImage", url)}
+                folder="buku3"
+                disabled={saving}
               />
-            </Field>
+            </div>
           </SectionCard>
 
           <SectionCard title="Kandungan">
-            <div className="space-y-3">
-              <RichTextEditor
-                value={form.kandungan}
-                onChange={(html) => set("kandungan", html)}
-                placeholder="Tulis kandungan bahagian ini..."
-                ariaLabel="Kandungan bahagian"
-              />
-              {(carta || borang) && (
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  {carta && (
-                    <li className="flex items-start gap-1.5">
-                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal" />
-                      <span>
-                        <span className="font-medium text-foreground">
-                          {carta}
-                        </span>{" "}
-                        kekal dipaparkan di bawah teks ini.
-                      </span>
-                    </li>
-                  )}
-                  {borang && (
-                    <li className="flex items-start gap-1.5">
-                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal" />
-                      <span>
-                        Teks ini juga dipaparkan kepada Temanion dalam Panduan
-                        Buku 3 pada borang{" "}
-                        <span className="font-medium text-foreground">
-                          {borang}
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <RichTextEditor
+                  value={form.kandungan}
+                  onChange={(html) => set("kandungan", html)}
+                  placeholder="Tulis kandungan bahagian ini..."
+                  ariaLabel="Kandungan bahagian"
+                />
+                {(carta || borang) && (
+                  <ul className="space-y-1.5 text-xs text-muted-foreground">
+                    {carta && (
+                      <li className="flex items-start gap-1.5">
+                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal" />
+                        <span>
+                          <span className="font-medium text-foreground">
+                            {carta}
+                          </span>{" "}
+                          kekal dipaparkan di bawah teks ini.
                         </span>
-                        .
-                      </span>
-                    </li>
-                  )}
-                </ul>
-              )}
-              {asal && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-2 text-muted-foreground"
-                  disabled={saving || sudahAsal}
-                  onClick={() => {
-                    setForm((f) => ({
-                      ...f,
-                      tajuk: asal.tajuk,
-                      kandungan: asal.kandungan,
-                    }));
+                      </li>
+                    )}
+                    {borang && (
+                      <li className="flex items-start gap-1.5">
+                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal" />
+                        <span>
+                          Teks ini juga dipaparkan kepada Temanion dalam Panduan
+                          Buku 3 pada borang{" "}
+                          <span className="font-medium text-foreground">
+                            {borang}
+                          </span>
+                          .
+                        </span>
+                      </li>
+                    )}
+                  </ul>
+                )}
+                {asal && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 text-muted-foreground"
+                    disabled={saving || sudahAsal}
+                    onClick={() => {
+                      setForm((f) => ({
+                        ...f,
+                        tajuk: asal.tajuk,
+                        kandungan: asal.kandungan,
+                      }));
+                      setDirty(true);
+                    }}
+                  >
+                    <RotateCcw className="mr-1 h-3.5 w-3.5" /> Guna teks asal
+                    Manual 3
+                  </Button>
+                )}
+              </div>
+
+              <Field label="Fail PDF (pilihan)">
+                <PdfField
+                  url={form.pdfUrl}
+                  name={form.pdfName}
+                  folder="buku3"
+                  disabled={saving}
+                  onUploadingChange={setUploadingPdf}
+                  onChange={(pdfUrl, pdfName) => {
+                    setForm((f) => ({ ...f, pdfUrl, pdfName }));
                     setDirty(true);
                   }}
-                >
-                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Guna teks asal
-                  Manual 3
-                </Button>
-              )}
+                />
+              </Field>
+
+              <Field label="Pautan Video YouTube (pilihan)">
+                <YoutubeField
+                  value={form.youtubeUrl}
+                  onChange={(url) => set("youtubeUrl", url)}
+                />
+              </Field>
             </div>
           </SectionCard>
 
@@ -264,7 +302,7 @@ export function Buku3BahagianForm({
           >
             Batal
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving || uploadingPdf}>
             {saving ? "Menyimpan..." : submitLabel}
           </Button>
         </div>

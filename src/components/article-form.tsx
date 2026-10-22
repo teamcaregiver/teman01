@@ -23,17 +23,12 @@ import {
 import { TopicSubtopicFields } from "@/components/topic-subtopic-fields";
 import { CoverImageField } from "@/components/cover-image-field";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { PdfField, YoutubeField } from "@/components/content-attachments";
 import { isBlank } from "@/lib/rich-text";
-import { uploadContentPdf } from "@/lib/storage";
-import {
-  VISIBILITY_LABEL,
-  YT_IFRAME_ALLOW,
-  youtubeEmbed,
-  youtubeId,
-} from "@/lib/mock-data";
+import { VISIBILITY_LABEL, isYoutubeInvalid } from "@/lib/mock-data";
 import type { ContentVisibility } from "@/lib/mock-data";
 import type { ArticleFormValues } from "@/lib/articles";
-import { AlertCircle, ChevronLeft, FileText, Upload } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -90,22 +85,7 @@ export function ArticleForm({
 
   const requestLeave = () => (dirty ? setConfirmLeave(true) : onLeave());
 
-  const ytInvalid = form.youtubeUrl.trim().length > 0 && !youtubeId(form.youtubeUrl);
-
-  const handlePdfUpload = async (file?: File) => {
-    if (!file) return;
-    setUploadingPdf(true);
-    try {
-      const { url, name } = await uploadContentPdf(file, "articles");
-      setForm((f) => ({ ...f, pdfUrl: url, pdfName: name }));
-      setDirty(true);
-      toast.success("PDF berjaya dimuat naik");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Muat naik PDF gagal");
-    } finally {
-      setUploadingPdf(false);
-    }
-  };
+  const ytInvalid = isYoutubeInvalid(form.youtubeUrl);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -193,80 +173,24 @@ export function ArticleForm({
               </Field>
 
               <Field label="Fail PDF (kandungan utama, pilihan)">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" asChild disabled={busy}>
-                    <label className="cursor-pointer">
-                      <Upload className="mr-1 h-3.5 w-3.5" />
-                      {uploadingPdf ? "Memuat naik..." : "Muat Naik PDF"}
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        className="hidden"
-                        disabled={busy}
-                        onChange={(e) => void handlePdfUpload(e.target.files?.[0])}
-                      />
-                    </label>
-                  </Button>
-                  {form.pdfUrl ? (
-                    <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                      <FileText className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{form.pdfName || "lampiran.pdf"}</span>
-                      <button
-                        type="button"
-                        className="cursor-pointer text-destructive hover:underline"
-                        onClick={() => {
-                          setForm((f) => ({ ...f, pdfUrl: "", pdfName: "" }));
-                          setDirty(true);
-                        }}
-                      >
-                        Buang
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Tiada fail dipilih</span>
-                  )}
-                </div>
-                <Input
-                  className="mt-2"
-                  value={form.pdfUrl.startsWith("blob:") ? "" : form.pdfUrl}
-                  onChange={(e) => {
-                    setForm((f) => ({
-                      ...f,
-                      pdfUrl: e.target.value,
-                      pdfName: f.pdfName || "lampiran.pdf",
-                    }));
+                <PdfField
+                  url={form.pdfUrl}
+                  name={form.pdfName}
+                  folder="articles"
+                  disabled={busy}
+                  onUploadingChange={setUploadingPdf}
+                  onChange={(pdfUrl, pdfName) => {
+                    setForm((f) => ({ ...f, pdfUrl, pdfName }));
                     setDirty(true);
                   }}
-                  placeholder="atau tampal URL PDF"
                 />
               </Field>
 
               <Field label="Pautan Video YouTube (sokongan, pilihan)">
-                <Input
+                <YoutubeField
                   value={form.youtubeUrl}
-                  onChange={(e) => set("youtubeUrl", e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  aria-invalid={ytInvalid || undefined}
+                  onChange={(url) => set("youtubeUrl", url)}
                 />
-                {ytInvalid ? (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                    <AlertCircle className="h-3.5 w-3.5" /> Pautan YouTube tidak dikenali. Contoh:
-                    https://www.youtube.com/watch?v=xxxxxxxxxxx
-                  </p>
-                ) : (
-                  form.youtubeUrl.trim() && (
-                    <div className="mt-2 aspect-video w-full overflow-hidden rounded-md bg-black">
-                      <iframe
-                        src={youtubeEmbed(form.youtubeUrl)}
-                        className="h-full w-full"
-                        allow={YT_IFRAME_ALLOW}
-                        referrerPolicy="strict-origin-when-cross-origin"
-                        allowFullScreen
-                        title="Pratonton video"
-                      />
-                    </div>
-                  )
-                )}
               </Field>
             </div>
           </SectionCard>

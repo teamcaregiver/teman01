@@ -14,6 +14,10 @@ const KOSONG: BahagianForm = {
   tajuk: "",
   kandungan: "",
   visibility: "published",
+  coverImage: "",
+  pdfUrl: "",
+  pdfName: "",
+  youtubeUrl: "",
 };
 
 function NewBahagian() {

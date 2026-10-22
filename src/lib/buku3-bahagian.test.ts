@@ -17,6 +17,10 @@ const row = (r: Partial<Buku3BahagianRow>): Buku3BahagianRow => ({
   kandungan: null,
   urutan: null,
   visibility: "published",
+  cover_image: null,
+  pdf_url: null,
+  pdf_name: null,
+  youtube_url: null,
   created_at: "2026-10-01T00:00:00Z",
   updated_at: "2026-10-01T00:00:00Z",
   updated_by: null,
@@ -50,6 +54,10 @@ describe("BUKU3_ASAL", () => {
       id: "peranan",
       visibility: "published",
       diubah: false,
+      coverImage: "",
+      pdfUrl: "",
+      pdfName: "",
+      youtubeUrl: "",
     });
     for (const p of BUKU3_PERANAN) expect(peranan[1]).toContain(p.huraian);
     // "Alergi (Ya — nyatakan / Tidak)" etc. never break the markup.
@@ -105,6 +113,44 @@ describe("gabungBahagian", () => {
     const x = list.find((b) => b.id === "x")!;
     expect(x.visibility).toBe("draft");
     expect(x.kunci).toBeUndefined();
+  });
+
+  it("carries attachments on both kinds of section, and is empty without them", () => {
+    const list = gabungBahagian([
+      row({
+        id: "a",
+        kunci: "vital",
+        cover_image: "https://contoh.com/k.jpg",
+        youtube_url: "https://youtu.be/abcdefghijk",
+      }),
+      row({
+        id: "z",
+        tajuk: "Tambahan",
+        kandungan: "<p>z</p>",
+        urutan: 500,
+        pdf_url: "https://contoh.com/f.pdf",
+        pdf_name: "panduan.pdf",
+      }),
+    ]);
+    const vital = list.find((b) => b.id === "vital")!;
+    expect(vital).toMatchObject({
+      coverImage: "https://contoh.com/k.jpg",
+      youtubeUrl: "https://youtu.be/abcdefghijk",
+      pdfUrl: "",
+      // Attachments alone don't count as a text change.
+      diubah: false,
+    });
+    expect(list.find((b) => b.id === "z")).toMatchObject({
+      pdfUrl: "https://contoh.com/f.pdf",
+      pdfName: "panduan.pdf",
+      coverImage: "",
+    });
+    expect(list.find((b) => b.id === "ubat")).toMatchObject({
+      coverImage: "",
+      pdfUrl: "",
+      pdfName: "",
+      youtubeUrl: "",
+    });
   });
 });
 

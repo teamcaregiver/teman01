@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -25,10 +27,15 @@ import {
   JenisBahagianBadge,
   StatusBahagianBadge,
 } from "@/components/buku3-badge";
+import {
+  PdfPreviewDialog,
+  VideoPreviewDialog,
+} from "@/components/content-attachments";
 import { CARTA_RUJUKAN, pindahBahagian } from "@/lib/buku3-bahagian";
 import type { BahagianBuku3 } from "@/lib/buku3-bahagian";
 import {
   padamBahagian,
+  padamBahagianBanyak,
   pulihkanBahagianAsal,
   simpanUrutan,
 } from "@/lib/buku3-actions";
@@ -39,10 +46,12 @@ import {
   ArrowDown,
   ArrowUp,
   BookOpenCheck,
+  FileText,
   Pencil,
   Plus,
   RotateCcw,
   Trash2,
+  Video as VideoIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -61,6 +70,36 @@ function JadualPemantauanPage() {
   const [deleteTarget, setDeleteTarget] = useState<BahagianBuku3 | null>(null);
   const [resetTarget, setResetTarget] = useState<BahagianBuku3 | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pdfPreview, setPdfPreview] = useState<BahagianBuku3 | null>(null);
+  const [videoPreview, setVideoPreview] = useState<BahagianBuku3 | null>(null);
+
+  // Only sections admin added can be deleted; Manual 3 sections always stay.
+  const deletable = list.filter((b) => !b.kunci);
+  const allSelected =
+    deletable.length > 0 && deletable.every((b) => selected.has(b.id));
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(deletable.map((b) => b.id)));
+
+  const deleteSelected = async () => {
+    const ids = [...selected];
+    try {
+      await padamBahagianBanyak(ids);
+      invalidate(qk.buku3);
+      toast.success(`${ids.length} bahagian dipadam`);
+      setSelected(new Set());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal memadam");
+    }
+  };
 
   const move = async (b: BahagianBuku3, arah: -1 | 1) => {
     const changes = pindahBahagian(list, b.id, arah);
@@ -122,12 +161,35 @@ function JadualPemantauanPage() {
       </Card>
 
       <Card className="overflow-hidden border-border/60 p-0">
+        {selected.size > 0 && (
+          <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2">
+            <span className="text-sm text-muted-foreground">
+              {selected.size} dipilih
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => void deleteSelected()}
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" /> Padam dipilih
+            </Button>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected}
+                    disabled={deletable.length === 0}
+                    onCheckedChange={toggleAll}
+                    aria-label="Pilih semua bahagian tambahan"
+                  />
+                </TableHead>
                 <TableHead className="w-10 text-right">#</TableHead>
-                <TableHead className="min-w-[260px]">Bahagian</TableHead>
+                <TableHead className="min-w-[300px]">Bahagian</TableHead>
                 <TableHead>Jenis</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Dikemas kini</TableHead>
@@ -138,15 +200,15 @@ function JadualPemantauanPage() {
               {q.isPending &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`s${i}`} className="hover:bg-transparent">
-                    <TableCell colSpan={6}>
-                      <Skeleton className="h-10 w-full" />
+                    <TableCell colSpan={7}>
+                      <Skeleton className="h-12 w-full" />
                     </TableCell>
                   </TableRow>
                 ))}
 
               {q.isError && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="py-10 text-center">
+                  <TableCell colSpan={7} className="py-10 text-center">
                     <p className="text-sm font-medium">
                       Gagal memuatkan Buku 3
                     </p>
@@ -168,6 +230,7 @@ function JadualPemantauanPage() {
               {list.map((b, i) => (
                 <TableRow
                   key={b.id}
+                  data-state={selected.has(b.id) ? "selected" : undefined}
                   className={OPENABLE_CLASS}
                   {...openOnClick(
                     () =>
@@ -178,18 +241,68 @@ function JadualPemantauanPage() {
                     `Buka bahagian ${b.tajuk}`,
                   )}
                 >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selected.has(b.id)}
+                      disabled={!!b.kunci}
+                      onCheckedChange={() => toggle(b.id)}
+                      aria-label={
+                        b.kunci
+                          ? `${b.tajuk} (Manual 3, tidak boleh dipadam)`
+                          : `Pilih ${b.tajuk}`
+                      }
+                      title={
+                        b.kunci
+                          ? "Bahagian Manual 3 tidak boleh dipadam"
+                          : undefined
+                      }
+                    />
+                  </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
                     {i + 1}
                   </TableCell>
-                  <TableCell>
-                    <p className="font-medium">{b.tajuk}</p>
-                    <p className="line-clamp-1 max-w-[340px] text-xs text-muted-foreground">
-                      {previewText(b.kandungan)}
-                    </p>
+                  {/* The whole row opens the section; this link also allows a new tab. */}
+                  <TableCell className="p-0">
+                    <Link
+                      to="/admin/jadual-pemantauan/$bahagianId"
+                      params={{ bahagianId: b.id }}
+                      aria-label={`Buka bahagian ${b.tajuk}`}
+                      className="group flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+                    >
+                      <div className="grid h-12 w-20 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
+                        {b.coverImage ? (
+                          <img
+                            src={b.coverImage}
+                            alt=""
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                        ) : (
+                          <BookOpenCheck className="h-5 w-5 text-muted-foreground/60" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium group-hover:text-primary group-hover:underline">
+                          {b.tajuk}
+                        </p>
+                        <p className="line-clamp-1 max-w-[300px] text-xs text-muted-foreground">
+                          {previewText(b.kandungan)}
+                        </p>
+                      </div>
+                    </Link>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       <JenisBahagianBadge bahagian={b} />
+                      {b.pdfUrl && (
+                        <Badge variant="outline" className="gap-1">
+                          <FileText className="h-3 w-3" /> PDF
+                        </Badge>
+                      )}
+                      {b.youtubeUrl && (
+                        <Badge variant="outline" className="gap-1">
+                          <VideoIcon className="h-3 w-3" /> Video
+                        </Badge>
+                      )}
                     </div>
                     {b.kunci && CARTA_RUJUKAN[b.kunci] && (
                       <p className="mt-1 max-w-[200px] truncate text-[11px] text-muted-foreground">
@@ -207,6 +320,28 @@ function JadualPemantauanPage() {
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-0.5">
+                      {b.pdfUrl && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Lihat PDF"
+                          aria-label={`Lihat PDF ${b.tajuk}`}
+                          onClick={() => setPdfPreview(b)}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {b.youtubeUrl && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Lihat Video"
+                          aria-label={`Lihat video ${b.tajuk}`}
+                          onClick={() => setVideoPreview(b)}
+                        >
+                          <VideoIcon className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         size="icon"
                         variant="ghost"
@@ -267,6 +402,20 @@ function JadualPemantauanPage() {
           </Table>
         </div>
       </Card>
+
+      <PdfPreviewDialog
+        item={pdfPreview && { title: pdfPreview.tajuk, url: pdfPreview.pdfUrl }}
+        onClose={() => setPdfPreview(null)}
+      />
+      <VideoPreviewDialog
+        item={
+          videoPreview && {
+            title: videoPreview.tajuk,
+            url: videoPreview.youtubeUrl,
+          }
+        }
+        onClose={() => setVideoPreview(null)}
+      />
 
       <AlertDialog
         open={!!resetTarget}

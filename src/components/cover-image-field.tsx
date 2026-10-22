@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import {
   IMAGE_ACCEPT,
   isValidImageUrl,
+  type ContentFolder,
   uploadContentImage,
   validateImageFile,
 } from "@/lib/storage";
@@ -17,7 +18,7 @@ interface Props {
   /** Current stored cover URL ("" when none). */
   value: string;
   onChange: (url: string) => void;
-  folder: "articles" | "videos";
+  folder: ContentFolder;
   /** Disables the whole control while the parent form is saving. */
   disabled?: boolean;
 }

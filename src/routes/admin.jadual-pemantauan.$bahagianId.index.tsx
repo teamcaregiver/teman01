@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { IsiBahagian } from "@/components/buku3";
+import { PdfCard, VideoCard } from "@/components/content-attachments";
 import {
   JenisBahagianBadge,
   StatusBahagianBadge,
@@ -162,7 +163,7 @@ function BahagianDetail() {
       </div>
 
       <Card className="border-border/60 p-4">
-        <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 lg:grid-cols-5">
           <Meta
             label="Jenis"
             value={b.kunci ? "Manual 3" : "Bahagian tambahan"}
@@ -177,6 +178,14 @@ function BahagianDetail() {
             }
           />
           <Meta label="Carta rujukan" value={carta ?? "—"} />
+          <Meta
+            label="Lampiran"
+            value={
+              [b.pdfUrl ? "PDF" : null, b.youtubeUrl ? "Video" : null]
+                .filter(Boolean)
+                .join(" · ") || "—"
+            }
+          />
         </dl>
         {borang && (
           <p className="mt-3 flex items-start gap-1.5 border-t border-border/60 pt-3 text-xs text-muted-foreground">
@@ -190,12 +199,26 @@ function BahagianDetail() {
         )}
       </Card>
 
+      {b.coverImage && (
+        <div className="aspect-[16/9] w-full overflow-hidden rounded-2xl bg-muted">
+          <img
+            src={b.coverImage}
+            alt={b.tajuk}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
+
       <Card className="space-y-3 border-border/60 p-6">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Paparan untuk keluarga
+          Kandungan Bahagian
         </h2>
-        <IsiBahagian bahagian={b} />
+        <IsiBahagian bahagian={b} lampiran={false} />
       </Card>
+
+      {b.pdfUrl && <PdfCard url={b.pdfUrl} name={b.pdfName} title={b.tajuk} />}
+
+      {b.youtubeUrl && <VideoCard url={b.youtubeUrl} title={b.tajuk} />}
 
       <AlertDialog
         open={!!confirm}

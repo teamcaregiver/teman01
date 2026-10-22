@@ -9,6 +9,20 @@ export interface BahagianForm {
   tajuk: string;
   kandungan: string;
   visibility: ContentVisibility;
+  coverImage: string;
+  pdfUrl: string;
+  pdfName: string;
+  youtubeUrl: string;
+}
+
+/** The attachment columns; "" is stored as null, like articles. */
+function lampiran(form: BahagianForm) {
+  return {
+    cover_image: form.coverImage.trim() || null,
+    pdf_url: form.pdfUrl.trim() || null,
+    pdf_name: form.pdfUrl.trim() ? form.pdfName || null : null,
+    youtube_url: form.youtubeUrl.trim() || null,
+  };
 }
 
 function check(error: { message: string } | null) {
@@ -16,12 +30,12 @@ function check(error: { message: string } | null) {
 }
 
 /**
- * Saves a built-in section's title and text. A value equal to the manual's is
- * stored as null, so that part keeps following the built-in text.
+ * Saves a built-in section's title, text and attachments. A title or text
+ * equal to the manual's is stored as null, so it keeps following the built-in.
  */
 export async function simpanBahagianAsal(
   kunci: Buku3Kunci,
-  form: Pick<BahagianForm, "tajuk" | "kandungan">,
+  form: BahagianForm,
 ) {
   const asal = bahagianAsal(kunci);
   if (!asal) throw new Error("Bahagian Buku 3 tidak dikenali.");
@@ -31,13 +45,14 @@ export async function simpanBahagianAsal(
       kunci,
       tajuk: tajuk === asal.tajuk ? null : tajuk,
       kandungan: form.kandungan === asal.kandungan ? null : form.kandungan,
+      ...lampiran(form),
     },
     { onConflict: "kunci" },
   );
   check(error);
 }
 
-/** A built-in section back to the manual's title and text; its position stays. */
+/** A built-in section back to the manual's title and text; its position and attachments stay. */
 export async function pulihkanBahagianAsal(kunci: Buku3Kunci) {
   const { error } = await supabase
     .from("buku3_bahagian")
@@ -58,6 +73,7 @@ export async function tambahBahagian(
       kandungan: form.kandungan,
       visibility: form.visibility,
       urutan,
+      ...lampiran(form),
     })
     .select("id")
     .single();
@@ -75,6 +91,7 @@ export async function kemaskiniBahagianTambahan(
       tajuk: form.tajuk.trim(),
       kandungan: form.kandungan,
       visibility: form.visibility,
+      ...lampiran(form),
     })
     .eq("id", id)
     .is("kunci", null);
@@ -83,10 +100,16 @@ export async function kemaskiniBahagianTambahan(
 
 /** Deletes a section admin added. Built-in sections cannot be deleted. */
 export async function padamBahagian(id: string) {
+  await padamBahagianBanyak([id]);
+}
+
+/** Deletes several added sections at once; built-in ids are ignored. */
+export async function padamBahagianBanyak(ids: string[]) {
+  if (ids.length === 0) return;
   const { error } = await supabase
     .from("buku3_bahagian")
     .delete()
-    .eq("id", id)
+    .in("id", ids)
     .is("kunci", null);
   check(error);
 }

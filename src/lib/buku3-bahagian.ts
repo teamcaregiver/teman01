@@ -46,6 +46,21 @@ export interface BahagianBuku3 {
   /** A built-in section whose title or text admin changed. */
   diubah: boolean;
   updatedAt?: string;
+  /** Attachments, as on articles; "" when none. */
+  coverImage: string;
+  pdfUrl: string;
+  pdfName: string;
+  youtubeUrl: string;
+}
+
+/** The attachment fields of a row (migration 0016); "" when none. */
+function lampiran(r?: Buku3BahagianRow) {
+  return {
+    coverImage: r?.cover_image ?? "",
+    pdfUrl: r?.pdf_url ?? "",
+    pdfName: r?.pdf_name ?? "",
+    youtubeUrl: r?.youtube_url ?? "",
+  };
 }
 
 const senarai = (tag: "ol" | "ul", item: string[]) =>
@@ -129,6 +144,7 @@ export function gabungBahagian(rows: Buku3BahagianRow[]): BahagianBuku3[] {
       visibility: "published",
       diubah: r?.tajuk != null || r?.kandungan != null,
       updatedAt: r?.updated_at,
+      ...lampiran(r),
     };
   });
   const tambahan: BahagianBuku3[] = rows
@@ -143,6 +159,7 @@ export function gabungBahagian(rows: Buku3BahagianRow[]): BahagianBuku3[] {
       visibility: r.visibility,
       diubah: false,
       updatedAt: r.updated_at,
+      ...lampiran(r),
     }));
   // Array.prototype.sort is stable, so ties keep the order above.
   return [...asal, ...tambahan].sort((a, b) => a.urutan - b.urutan);

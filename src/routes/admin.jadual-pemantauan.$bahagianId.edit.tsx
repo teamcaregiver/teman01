@@ -36,9 +36,26 @@ function EditBahagian() {
   const initial = useMemo<BahagianForm | null>(
     () =>
       b
-        ? { tajuk: b.tajuk, kandungan: b.kandungan, visibility: b.visibility }
+        ? {
+            tajuk: b.tajuk,
+            kandungan: b.kandungan,
+            visibility: b.visibility,
+            coverImage: b.coverImage,
+            pdfUrl: b.pdfUrl,
+            pdfName: b.pdfName,
+            youtubeUrl: b.youtubeUrl,
+          }
         : null,
-    [b?.tajuk, b?.kandungan, b?.visibility], // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      b?.tajuk,
+      b?.kandungan,
+      b?.visibility,
+      b?.coverImage,
+      b?.pdfUrl,
+      b?.pdfName,
+      b?.youtubeUrl,
+    ],
   );
 
   const backToDetail = () =>

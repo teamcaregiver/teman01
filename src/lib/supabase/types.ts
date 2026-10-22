@@ -251,6 +251,11 @@ export type Buku3BahagianRow = {
   kandungan: string | null;
   urutan: number | null;
   visibility: ContentVisibility;
+  // Attachments, as on articles (migration 0016).
+  cover_image: string | null;
+  pdf_url: string | null;
+  pdf_name: string | null;
+  youtube_url: string | null;
   created_at: string;
   updated_at: string;
   updated_by: string | null;

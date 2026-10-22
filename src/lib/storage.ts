@@ -2,14 +2,51 @@
 // is public-read, admin-write — uploads run under the logged-in admin's JWT, so
 // RLS rejects them for non-admins. Returns a permanent public URL safe to store
 // in articles.pdf_url / videos.pdf_url and reuse across reloads and users.
+//
+// With VITE_STORAGE_BACKEND=gdrive, new uploads go to Google Drive through the
+// `drive-files` Edge Function instead (src/lib/drive-storage.ts). The return
+// shapes stay the same, so callers don't change. Files already in Supabase
+// Storage keep working either way, and so do Drive files after switching back.
 import { supabase } from "@/lib/supabase/client";
+import {
+  driveEnabled,
+  isDriveRef,
+  removeDriveRefs,
+  signDriveRefs,
+  uploadToDrive,
+} from "@/lib/drive-storage";
 
 const CONTENT_BUCKET = "content";
 
+/** Folder inside the content bucket (or Drive) for each kind of content. */
+export type ContentFolder = "articles" | "videos" | "buku3";
+
+export const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20 MB
+
+/** Human-readable reason the PDF is unusable, or null when it is fine. */
+export function validatePdfFile(file: File): string | null {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (file.type !== "application/pdf" && ext !== "pdf") {
+    return "Format tidak disokong. Sila muat naik fail PDF.";
+  }
+  if (file.size > MAX_PDF_BYTES) {
+    return "Saiz PDF melebihi 20 MB. Sila guna fail yang lebih kecil.";
+  }
+  return null;
+}
+
 export async function uploadContentPdf(
   file: File,
-  folder: "articles" | "videos",
+  folder: ContentFolder,
 ): Promise<{ url: string; name: string }> {
+  const reason = validatePdfFile(file);
+  if (reason) throw new Error(reason);
+
+  if (driveEnabled()) {
+    const { url, name } = await uploadToDrive(file, "content", folder);
+    return { url: url!, name };
+  }
+
   // Random key avoids collisions / weird-char issues; the human-readable name is
   // kept separately in pdf_name.
   const ext = file.name.split(".").pop()?.toLowerCase() || "pdf";
@@ -57,10 +94,15 @@ export function validateImageFile(file: File): string | null {
  */
 export async function uploadContentImage(
   file: File,
-  folder: "articles" | "videos",
+  folder: ContentFolder,
 ): Promise<{ url: string; name: string }> {
   const reason = validateImageFile(file);
   if (reason) throw new Error(reason);
+
+  if (driveEnabled()) {
+    const { url, name } = await uploadToDrive(file, "content", folder);
+    return { url: url!, name };
+  }
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `${folder}/cover-${crypto.randomUUID()}.${ext}`;
@@ -89,7 +131,8 @@ export function isValidImageUrl(value: string): boolean {
 // ---------- activity photos (private) ----------
 // Photos of residents live in the PRIVATE `activity-photos` bucket
 // (migrations/0010_activity_photos_storage.sql). tracker_records.gambar keeps
-// the object paths; screens turn them into short-lived signed links.
+// the object paths (or `gdrive:<id>` refs when stored on Google Drive); screens
+// turn them into short-lived signed links.
 const ACTIVITY_BUCKET = "activity-photos";
 
 /** How long a signed photo link stays valid, in seconds. */
@@ -102,9 +145,12 @@ const MIME_BY_EXT: Record<string, string> = {
   webp: "image/webp",
 };
 
-/** True for a stored object path; false for links such as https: or blob:. */
+/**
+ * True for a stored reference that needs signing (a Storage object path or a
+ * `gdrive:` ref); false for links such as https: or blob:.
+ */
 export function isActivityPhotoPath(value: string): boolean {
-  return !/^[a-z][a-z0-9+.-]*:/i.test(value);
+  return isDriveRef(value) || !/^[a-z][a-z0-9+.-]*:/i.test(value);
 }
 
 /**
@@ -118,6 +164,8 @@ export async function uploadActivityPhotos(parentId: string, files: File[]): Pro
     files.map(async (file) => {
       const reason = validateImageFile(file);
       if (reason) throw new Error(reason);
+
+      if (driveEnabled()) return (await uploadToDrive(file, "activity", parentId)).ref;
 
       // validateImageFile passed on the MIME type or the extension, so one
       // of the two gives a type the bucket accepts.
@@ -146,18 +194,24 @@ export async function uploadActivityPhotos(parentId: string, files: File[]): Pro
 
 /** Best-effort delete, used to clean up after a failed save. */
 export async function removeActivityPhotos(paths: string[]): Promise<void> {
-  if (paths.length === 0) return;
-  await supabase.storage.from(ACTIVITY_BUCKET).remove(paths);
+  const objects = paths.filter((p) => !isDriveRef(p));
+  await Promise.allSettled([
+    removeDriveRefs(paths.filter(isDriveRef)),
+    objects.length > 0 ? supabase.storage.from(ACTIVITY_BUCKET).remove(objects) : null,
+  ]);
 }
 
 /** Signed links for object paths, keyed by path. Paths the caller may not read are left out. */
 export async function signActivityPhotos(paths: string[]): Promise<Record<string, string>> {
+  const objects = paths.filter((p) => !isDriveRef(p));
+  const urls: Record<string, string> = await signDriveRefs(paths.filter(isDriveRef));
+  if (objects.length === 0) return urls;
+
   const { data, error } = await supabase.storage
     .from(ACTIVITY_BUCKET)
-    .createSignedUrls(paths, ACTIVITY_PHOTO_URL_TTL);
+    .createSignedUrls(objects, ACTIVITY_PHOTO_URL_TTL);
   if (error) throw new Error(error.message);
 
-  const urls: Record<string, string> = {};
   for (const item of data) {
     if (item.path && item.signedUrl && !item.error) urls[item.path] = item.signedUrl;
   }
@@ -178,6 +232,11 @@ export async function uploadAvatar(
   const reason = validateImageFile(file);
   if (reason) throw new Error(reason);
 
+  if (driveEnabled()) {
+    const { ref, url } = await uploadToDrive(file, "avatar", userId);
+    return { url: url!, path: ref };
+  }
+
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `${userId}/${crypto.randomUUID()}.${ext}`;
 
@@ -188,4 +247,10 @@ export async function uploadAvatar(
 
   const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
   return { url: data.publicUrl, path };
+}
+
+/** Best-effort delete of an avatar from uploadAvatar, e.g. when saving it failed. */
+export async function removeAvatarFile(path: string): Promise<void> {
+  if (isDriveRef(path)) await removeDriveRefs([path]);
+  else await supabase.storage.from(AVATAR_BUCKET).remove([path]);
 }

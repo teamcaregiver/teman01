@@ -297,6 +297,11 @@ export function youtubeId(url?: string): string | undefined {
   return m?.[1];
 }
 
+/** True when something is typed but it isn't a YouTube link. */
+export function isYoutubeInvalid(value: string): boolean {
+  return value.trim().length > 0 && !youtubeId(value);
+}
+
 // Permissions a YouTube <iframe> needs. `encrypted-media` is required for
 // DRM-protected videos (e.g. VEVO/music) — without it they show
 // "Video unavailable". Note: DRM playback also needs a secure context

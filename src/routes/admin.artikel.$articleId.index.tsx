@@ -16,28 +16,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RichText } from "@/components/rich-text";
+import { PdfCard, VideoCard } from "@/components/content-attachments";
 import { fetchArticleById } from "@/lib/db";
 import { isBlank } from "@/lib/rich-text";
 import { supabase } from "@/lib/supabase/client";
 import { useInvalidate, qk } from "@/lib/data";
-import {
-  VISIBILITY_LABEL,
-  YT_IFRAME_ALLOW,
-  youtubeEmbed,
-  youtubeId,
-} from "@/lib/mock-data";
+import { VISIBILITY_LABEL } from "@/lib/mock-data";
 import type { ContentVisibility } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import {
-  ChevronLeft,
-  Download,
-  Eye,
-  FileText,
-  Pencil,
-  Trash2,
-  Video as VideoIcon,
-} from "lucide-react";
+import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/artikel/$articleId/")({
   component: ArticleDetail,
@@ -95,8 +83,6 @@ function ArticleDetail() {
         }
       />
     );
-
-  const ytValid = !!youtubeId(a.youtubeUrl);
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -176,67 +162,9 @@ function ArticleDetail() {
         )
       )}
 
-      {/* PDF */}
-      {a.pdfUrl && (
-        <Card className="border-border/60 p-6">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <FileText className="h-3.5 w-3.5" /> Dokumen PDF
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" asChild>
-                <a href={a.pdfUrl} target="_blank" rel="noreferrer">
-                  <Eye className="mr-1 h-3.5 w-3.5" /> Buka tab baru
-                </a>
-              </Button>
-              <Button size="sm" variant="outline" asChild>
-                <a href={a.pdfUrl} download={a.pdfName ?? true}>
-                  <Download className="mr-1 h-3.5 w-3.5" /> Muat Turun
-                </a>
-              </Button>
-            </div>
-          </div>
-          <p className="mb-2 truncate text-xs text-muted-foreground">
-            {a.pdfName || "lampiran.pdf"}
-          </p>
-          <div className="overflow-hidden rounded-md border border-border">
-            <iframe src={a.pdfUrl} title={`PDF: ${a.title}`} className="h-[70vh] w-full" />
-          </div>
-        </Card>
-      )}
+      {a.pdfUrl && <PdfCard url={a.pdfUrl} name={a.pdfName} title={a.title} />}
 
-      {/* Video */}
-      {a.youtubeUrl && (
-        <Card className="border-border/60 p-6">
-          <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <VideoIcon className="h-3.5 w-3.5" /> Video Berkaitan
-          </h2>
-          {ytValid ? (
-            <div className="aspect-video w-full overflow-hidden rounded-md bg-black">
-              <iframe
-                src={youtubeEmbed(a.youtubeUrl)}
-                className="h-full w-full"
-                allow={YT_IFRAME_ALLOW}
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-                title={a.title}
-              />
-            </div>
-          ) : (
-            <div className="rounded-md bg-muted/40 p-4 text-xs text-muted-foreground">
-              Pautan video tidak dikenali sebagai YouTube.{" "}
-              <a
-                href={a.youtubeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary underline"
-              >
-                Buka pautan asal
-              </a>
-            </div>
-          )}
-        </Card>
-      )}
+      {a.youtubeUrl && <VideoCard url={a.youtubeUrl} title={a.title} />}
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

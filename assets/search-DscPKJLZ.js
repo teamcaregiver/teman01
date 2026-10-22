@@ -1,0 +1,1 @@
+var e=e=>e.toLowerCase().normalize(`NFD`).replace(/\p{M}/gu,``).replace(/\s+/g,` `).trim();function t(t,n){let r=e(n).split(` `).filter(Boolean);if(r.length===0)return!0;let i=e(t.filter(Boolean).join(` `));return r.every(e=>i.includes(e))}export{t};

@@ -25,10 +25,19 @@ import {
   RELATIONSHIP_OTHER,
   joinRelationship,
 } from "@/lib/relationship";
+import {
+  FIZIKAL_KOSONG,
+  fizikalKeRow,
+  hariIni,
+  semakFizikal,
+  umur,
+  type FizikalForm,
+} from "@/lib/profil-penerima";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { LokasiSelect } from "@/components/lokasi-select";
+import { PenerimaFizikalFields, UmurHint } from "@/components/penerima-fizikal-fields";
 
 export const Route = createFileRoute("/admin/warga-emas/baru")({
   component: NewParent,
@@ -46,6 +55,13 @@ function NewParent() {
   const [relationship, setRelationship] = useState("");
   const [relationshipOther, setRelationshipOther] = useState("");
   const [lokasi, setLokasi] = useState("");
+  // Issue #12: checked before saving, so held in state.
+  const [birthDate, setBirthDate] = useState("");
+  const [gender, setGender] = useState("");
+  const [fizikal, setFizikal] = useState<FizikalForm>(FIZIKAL_KOSONG);
+  const [linkAnakId, setLinkAnakId] = useState("");
+  // A relationship only means something when the person is linked to a family account.
+  const linkingAnak = createAnak || !!linkAnakId;
 
   // Unsaved-change guard: any edit arms it, a successful save disarms it.
   const [dirty, setDirty] = useState(false);
@@ -83,8 +99,14 @@ function NewParent() {
     const fd = new FormData(e.currentTarget);
     const get = (k: string) => (fd.get(k) as string | null)?.trim() ?? "";
 
-    if (relationship === RELATIONSHIP_OTHER && !relationshipOther.trim()) {
-      toast.error("Sila nyatakan hubungan.");
+    const problem =
+      (umur(birthDate) == null && "Tarikh lahir tidak sah.") ||
+      (!gender && "Sila pilih jantina.") ||
+      semakFizikal(fizikal) ||
+      (linkingAnak && !relationship && "Sila pilih hubungan dengan anak.") ||
+      (relationship === RELATIONSHIP_OTHER && !relationshipOther.trim() && "Sila nyatakan hubungan.");
+    if (problem) {
+      toast.error(problem);
       return;
     }
 
@@ -111,8 +133,9 @@ function NewParent() {
         .insert({
           full_name: get("fullName"),
           ic: get("ic"),
-          birth_date: get("birthDate") || null,
-          gender: (get("gender") as "L" | "P") || "P",
+          birth_date: birthDate,
+          gender: gender as "L" | "P",
+          ...fizikalKeRow(fizikal),
           address: get("address"),
           lokasi: lokasi || null,
           phone: get("phone"),
@@ -176,18 +199,40 @@ function NewParent() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Nama Penuh *"><Input name="fullName" required placeholder="Cth: Puan Mariam binti Hassan" /></Field>
               <Field label="No. IC *"><Input name="ic" required placeholder="510304-08-5432" /></Field>
-              <Field label="Tarikh Lahir *"><Input name="birthDate" required type="date" /></Field>
+              <Field label="Tarikh Lahir *">
+                <Input
+                  required
+                  type="date"
+                  max={hariIni()}
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                />
+                <UmurHint birthDate={birthDate} />
+              </Field>
               <Field label="Jantina *">
-                <Select name="gender" defaultValue="P" onValueChange={markDirty}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={gender}
+                  onValueChange={(v) => {
+                    setGender(v);
+                    markDirty();
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Pilih jantina" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="L">Lelaki</SelectItem>
                     <SelectItem value="P">Perempuan</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
+              <PenerimaFizikalFields
+                value={fizikal}
+                onChange={(v) => {
+                  setFizikal(v);
+                  markDirty();
+                }}
+              />
               <Field label="No. Telefon *"><Input name="phone" required placeholder="03-2092 1122" /></Field>
-              <Field label="Hubungan dengan Anak">
+              <Field label={linkingAnak ? "Hubungan dengan Anak *" : "Hubungan dengan Anak"}>
                 <Select
                   value={relationship}
                   onValueChange={(v) => {
@@ -323,7 +368,14 @@ function NewParent() {
               ) : (
                 <div className="mt-4">
                   <Field label="Pautkan kepada Anak Sedia Ada">
-                    <Select name="linkAnakId" onValueChange={markDirty}>
+                    <Select
+                      name="linkAnakId"
+                      value={linkAnakId}
+                      onValueChange={(v) => {
+                        setLinkAnakId(v);
+                        markDirty();
+                      }}
+                    >
                       <SelectTrigger><SelectValue placeholder="Pilih anak" /></SelectTrigger>
                       <SelectContent>
                         {anakOptions.map((s) => (

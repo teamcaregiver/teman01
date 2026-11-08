@@ -13,6 +13,21 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-store";
+import { qk, useInvalidate } from "@/lib/data";
+import {
+  RELATIONSHIP_OPTIONS,
+  RELATIONSHIP_OTHER,
+  joinRelationship,
+} from "@/lib/relationship";
+import {
+  FIZIKAL_KOSONG,
+  fizikalKeRow,
+  hariIni,
+  semakFizikal,
+  umur,
+  type FizikalForm,
+} from "@/lib/profil-penerima";
+import { PenerimaFizikalFields, UmurHint } from "@/components/penerima-fizikal-fields";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -35,12 +50,29 @@ const STATUS_KOGNITIF = ["Normal", "Ringan", "Sederhana", "Teruk"];
 function RegisterParent() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const invalidate = useInvalidate();
   const [saving, setSaving] = useState(false);
+  // Controlled because they are checked before saving (issue #12).
+  const [birthDate, setBirthDate] = useState("");
+  const [gender, setGender] = useState("");
+  const [relationship, setRelationship] = useState("");
+  const [relationshipOther, setRelationshipOther] = useState("");
+  const [fizikal, setFizikal] = useState<FizikalForm>(FIZIKAL_KOSONG);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!user) {
       toast.error("Sila log masuk semula.");
+      return;
+    }
+    const problem =
+      (umur(birthDate) == null && "Tarikh lahir tidak sah.") ||
+      (!gender && "Sila pilih jantina.") ||
+      semakFizikal(fizikal) ||
+      (!relationship && "Sila pilih hubungan anda dengan penerima servis.") ||
+      (relationship === RELATIONSHIP_OTHER && !relationshipOther.trim() && "Sila nyatakan hubungan.");
+    if (problem) {
+      toast.error(problem);
       return;
     }
     const fd = new FormData(e.currentTarget);
@@ -57,14 +89,15 @@ function RegisterParent() {
           id: newParentId,
           full_name: get("fullName"),
           ic: get("ic"),
-          birth_date: get("birthDate") || null,
-          gender: (get("gender") as "L" | "P") || "P",
+          birth_date: birthDate,
+          gender: gender as "L" | "P",
+          ...fizikalKeRow(fizikal),
           address: get("address"),
           phone: get("phone"),
           medical_condition: get("medicalCondition"),
           medication: get("medication"),
           emergency_contact: get("emergencyContact"),
-          relationship: get("relationship"),
+          relationship: joinRelationship(relationship, relationshipOther),
           jenis_darah: get("jenisDarah") || null,
           alahan: get("alahan") || null,
           nama_doktor: get("namaDoktor") || null,
@@ -82,6 +115,7 @@ function RegisterParent() {
         .insert({ parent_id: newParentId, anak_id: user.id });
       if (linkErr) throw linkErr;
 
+      invalidate(qk.parents);
       toast.success("Warga emas berjaya didaftarkan dan dipautkan ke akaun anda.");
       navigate({ to: "/anak" });
     } catch (err) {
@@ -116,12 +150,19 @@ function RegisterParent() {
                 <Input name="ic" required placeholder="510304-08-5432" />
               </Field>
               <Field label="Tarikh Lahir *">
-                <Input name="birthDate" required type="date" />
+                <Input
+                  required
+                  type="date"
+                  max={hariIni()}
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                />
+                <UmurHint birthDate={birthDate} />
               </Field>
               <Field label="Jantina *">
-                <Select name="gender" defaultValue="P">
+                <Select value={gender} onValueChange={setGender}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Pilih jantina" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="L">Lelaki</SelectItem>
@@ -129,15 +170,36 @@ function RegisterParent() {
                   </SelectContent>
                 </Select>
               </Field>
+              <PenerimaFizikalFields value={fizikal} onChange={setFizikal} />
               <Field label="No. Telefon *">
                 <Input name="phone" required placeholder="03-2092 1122" />
               </Field>
-              <Field label="Hubungan dengan Anda">
-                <Input
-                  name="relationship"
-                  placeholder="Cth: Ibu / Ayah / Datuk"
-                />
+              <Field label="Hubungan Anda dengan Penerima Servis *">
+                <Select value={relationship} onValueChange={setRelationship}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih hubungan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RELATIONSHIP_OPTIONS.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={RELATIONSHIP_OTHER}>{RELATIONSHIP_OTHER}</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
+              {relationship === RELATIONSHIP_OTHER && (
+                <div className="md:col-span-2">
+                  <Field label="Nyatakan Hubungan *">
+                    <Input
+                      value={relationshipOther}
+                      onChange={(e) => setRelationshipOther(e.target.value)}
+                      placeholder="Cth: Jiran, penjaga sah"
+                    />
+                  </Field>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <Field label="Alamat *">
                   <Textarea

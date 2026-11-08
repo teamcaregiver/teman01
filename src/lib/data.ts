@@ -97,6 +97,16 @@ export function useArticlesQuery() {
   return useQuery({ queryKey: qk.articles, queryFn: db.fetchArticles, staleTime: STALE });
 }
 
+/** The booker details (issue #12) of one account — the anak's own Profil page. */
+export function usePenempahQuery(userId: string | undefined) {
+  return useQuery({
+    queryKey: [...qk.users, "penempah", userId ?? ""],
+    queryFn: () => db.fetchPenempah(userId!),
+    staleTime: STALE,
+    enabled: !!userId,
+  });
+}
+
 /** One resident by id — works for archived residents too, unlike the lists. */
 export function useParentQuery(id: string) {
   return useQuery({

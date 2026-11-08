@@ -26,9 +26,18 @@ import {
   joinRelationship,
   splitRelationship,
 } from "@/lib/relationship";
+import {
+  fizikalDaripadaParent,
+  fizikalKeRow,
+  hariIni,
+  semakFizikal,
+  umur,
+  type FizikalForm,
+} from "@/lib/profil-penerima";
 import { toast } from "sonner";
 import { ChevronLeft } from "lucide-react";
 import { LokasiSelect } from "@/components/lokasi-select";
+import { PenerimaFizikalFields, UmurHint } from "@/components/penerima-fizikal-fields";
 
 export const Route = createFileRoute("/admin/warga-emas/$parentId/edit")({
   component: EditParent,
@@ -60,6 +69,8 @@ type FormState = {
   telDoktor: string;
   hospitalRujukan: string;
   emergencyContact: string;
+  /** Language, weight, height (issue #12). */
+  fizikal: FizikalForm;
 };
 
 function EditParent() {
@@ -116,6 +127,7 @@ function EditParent() {
       telDoktor: parent.telDoktor ?? "",
       hospitalRujukan: parent.hospitalRujukan ?? "",
       emergencyContact: parent.emergencyContact ?? "",
+      fizikal: fizikalDaripadaParent(parent),
     });
     setLinkedAnak(parent.anakIds);
     setOriginalAnak(parent.anakIds);
@@ -169,6 +181,15 @@ function EditParent() {
       toast.error(`Sila isi ruangan ${missing[0]}.`);
       return;
     }
+    if (umur(form.birthDate) == null) {
+      toast.error("Tarikh lahir tidak sah.");
+      return;
+    }
+    const fizikalProblem = semakFizikal(form.fizikal);
+    if (fizikalProblem) {
+      toast.error(fizikalProblem);
+      return;
+    }
     if (form.relationship === RELATIONSHIP_OTHER && !form.relationshipOther.trim()) {
       toast.error("Sila nyatakan hubungan.");
       return;
@@ -183,6 +204,7 @@ function EditParent() {
           ic: form.ic.trim(),
           birth_date: form.birthDate || null,
           gender: form.gender,
+          ...fizikalKeRow(form.fizikal),
           address: form.address.trim(),
           lokasi: form.lokasi || null,
           phone: form.phone.trim(),
@@ -285,7 +307,13 @@ function EditParent() {
                 <Input value={form.ic} onChange={(e) => set("ic", e.target.value)} />
               </Field>
               <Field label="Tarikh Lahir *">
-                <Input type="date" value={form.birthDate} onChange={(e) => set("birthDate", e.target.value)} />
+                <Input
+                  type="date"
+                  max={hariIni()}
+                  value={form.birthDate}
+                  onChange={(e) => set("birthDate", e.target.value)}
+                />
+                <UmurHint birthDate={form.birthDate} />
               </Field>
               <Field label="Jantina *">
                 <Select value={form.gender} onValueChange={(v) => set("gender", v as "L" | "P")}>
@@ -296,6 +324,7 @@ function EditParent() {
                   </SelectContent>
                 </Select>
               </Field>
+              <PenerimaFizikalFields value={form.fizikal} onChange={(v) => set("fizikal", v)} />
               <Field label="No. Telefon *">
                 <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
               </Field>

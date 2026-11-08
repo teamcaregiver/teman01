@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
-import { useParents, useTrackers } from "@/lib/data";
+import { useParents, usePenempahQuery, useTrackers } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
+import { penempahLengkap } from "@/lib/penempah";
 import { StaggerItem, StaggerList } from "@/components/page-transition";
-import { ChevronRight, Heart, Activity } from "lucide-react";
+import { AlertCircle, ChevronRight, Heart, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 
@@ -16,6 +17,9 @@ function AnakHome() {
   const parents = useParents();
   const trackers = useTrackers();
   const myParents = parents.filter((p) => p.anakIds.includes(user?.id ?? ""));
+  // Accounts made before issue #12 (or by admin) have no IC / emergency contact yet.
+  const penempah = usePenempahQuery(user?.id).data;
+  const belumLengkap = !!penempah && !penempahLengkap(penempah, user?.phone);
 
   return (
     <div className="space-y-5">
@@ -28,6 +32,21 @@ function AnakHome() {
         <h1 className="mt-1 font-display text-xl font-bold">{user?.name}</h1>
         <p className="mt-2 text-sm text-muted-foreground">Pantau kesihatan orang tersayang dengan mudah.</p>
       </motion.div>
+
+      {belumLengkap && (
+        <Link to="/anak/profil" className="block">
+          <Card className="hover-lift flex items-center gap-3 border-peach/60 bg-peach/15 p-4">
+            <AlertCircle className="h-5 w-5 shrink-0 text-peach-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Lengkapkan profil anda</p>
+              <p className="text-xs text-muted-foreground">
+                No. kad pengenalan dan kontak kecemasan masih belum diisi.
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Card>
+        </Link>
+      )}
 
       <h2 className="font-display text-lg font-bold">Orang Tersayang</h2>
       <StaggerList>

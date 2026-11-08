@@ -6,6 +6,7 @@ import type {
   RisikoJatuhEntry,
   TingkahLakuEntry,
 } from "./pemantauan";
+import type { MaklumatPenempah } from "./penempah";
 
 export type Role = "admin" | "staff" | "anak";
 
@@ -18,6 +19,11 @@ export interface User {
   phone?: string;
   /** Public URL of the profile photo, when the user has uploaded one. */
   avatar?: string;
+  /**
+   * Booker details of an anak account (issue #12). Only on users loaded by
+   * the admin users list — never on the session user cached in localStorage.
+   */
+  penempah?: MaklumatPenempah;
 }
 
 export interface Parent {
@@ -48,6 +54,10 @@ export interface Parent {
   archivedAt?: string;
   /** State / area from src/lib/lokasi.ts, for the admin location filter. */
   lokasi?: string;
+  // Issue #12 — see src/lib/profil-penerima.ts.
+  bahasaPilihan?: string;
+  beratKg?: number;
+  tinggiCm?: number;
 }
 
 export type TrackerStatus = "normal" | "attention" | "critical";

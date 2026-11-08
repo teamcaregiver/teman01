@@ -33,6 +33,7 @@ import type {
   TrackerRow,
   VideoRow,
 } from "@/lib/supabase/types";
+import { penempahDaripadaRow, type MaklumatPenempah } from "@/lib/penempah";
 
 /** Topic/subtopic names embedded next to the foreign keys (migration 0009). */
 type TaxonomyNames = {
@@ -54,6 +55,8 @@ const toUser = (r: ProfileRow): User => ({
   status: r.status,
   phone: r.phone ?? undefined,
   avatar: r.avatar_url ?? undefined,
+  // RLS only returns other users' rows to admin, so only admin sees these.
+  penempah: r.role === "anak" ? penempahDaripadaRow(r) : undefined,
 });
 
 const toParent = (r: ParentRow, anakIds: string[]): Parent => ({
@@ -81,6 +84,10 @@ const toParent = (r: ParentRow, anakIds: string[]): Parent => ({
   sekatanPemakanan: r.sekatan_pemakanan ?? undefined,
   archivedAt: r.archived_at ?? undefined,
   lokasi: r.lokasi ?? undefined,
+  bahasaPilihan: r.bahasa_pilihan ?? undefined,
+  // numeric columns can arrive as strings depending on the PostgREST setting.
+  beratKg: r.berat_kg == null ? undefined : Number(r.berat_kg),
+  tinggiCm: r.tinggi_cm == null ? undefined : Number(r.tinggi_cm),
 });
 
 const toMedication = (r: MedicationRow): Medication => ({
@@ -227,6 +234,21 @@ export async function fetchUsers(): Promise<User[]> {
     .select("*")
     .order("created_at", { ascending: true });
   return unwrap<ProfileRow[]>(data, error).map(toUser);
+}
+
+/**
+ * One account's booker details (issue #12). `select("*")` rather than a column
+ * list, so a database without migration 0017 yet reads as blank instead of
+ * failing.
+ */
+export async function fetchPenempah(userId: string): Promise<MaklumatPenempah> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return penempahDaripadaRow(data as ProfileRow | null);
 }
 
 export async function fetchUsersByRole(role: User["role"]): Promise<User[]> {

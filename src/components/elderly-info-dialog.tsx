@@ -11,15 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { Parent } from "@/lib/mock-data";
 import { GenderAvatar } from "@/components/gender-avatar";
-import { differenceInYears } from "date-fns";
+import { formatBerat, formatTinggi, formatUmur } from "@/lib/profil-penerima";
 import { Info } from "lucide-react";
-
-function ageFromBirth(birthDate?: string): string {
-  if (!birthDate) return "—";
-  const d = new Date(birthDate);
-  if (isNaN(d.getTime())) return "—";
-  return `${differenceInYears(new Date(), d)} tahun`;
-}
 
 // Reusable "Info" button that opens a modal with the elderly person's care
 // profile. Keeps the main staff pages clean — details live behind a tap.
@@ -68,7 +61,10 @@ export function ElderlyInfoDialog({
         <div className="space-y-4">
           {/* Personal */}
           <Section title="Maklumat Peribadi">
-            <Item label="Umur" value={ageFromBirth(parent.birthDate)} />
+            <Item label="Umur" value={formatUmur(parent.birthDate)} />
+            <Item label="Bahasa Pilihan" value={parent.bahasaPilihan} />
+            <Item label="Berat" value={formatBerat(parent.beratKg)} />
+            <Item label="Tinggi" value={formatTinggi(parent.tinggiCm)} />
             <Item label="No. Telefon" value={parent.phone} />
             <Item label="Status Mobiliti" value={parent.statusMobiliti} />
             <Item label="Status Kognitif" value={parent.statusKognitif} />

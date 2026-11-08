@@ -9,6 +9,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase/client";
 import { refreshCurrentUser, useAuth } from "@/lib/auth-store";
+import { qk, useInvalidate, usePenempahQuery } from "@/lib/data";
+import {
+  PENEMPAH_KOSONG,
+  penempahKeRow,
+  penempahLengkap,
+  semakPenempah,
+  type MaklumatPenempah,
+} from "@/lib/penempah";
+import {
+  PenempahIcField,
+  PenempahKecemasanFields,
+  PenempahMajikanFields,
+} from "@/components/penempah-fields";
 import { IMAGE_ACCEPT, removeAvatarFile, uploadAvatar, validateImageFile } from "@/lib/storage";
 import { toast } from "sonner";
 import { AlertCircle, Trash2, Upload } from "lucide-react";
@@ -35,12 +48,25 @@ const initialsOf = (name: string) =>
  */
 export function ProfilePage() {
   const { user, ready } = useAuth();
+  const invalidate = useInvalidate();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState("");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  // Booker details (issue #12): family accounts only.
+  const isAnak = user?.role === "anak";
+  const penempahQ = usePenempahQuery(isAnak ? user?.id : undefined);
+  const [penempah, setPenempah] = useState<MaklumatPenempah>(PENEMPAH_KOSONG);
+  useEffect(() => {
+    if (penempahQ.data) setPenempah(penempahQ.data);
+  }, [penempahQ.data]);
+  const editPenempah = (next: MaklumatPenempah) => {
+    setPenempah(next);
+    setDirty(true);
+  };
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -126,17 +152,33 @@ export function ProfilePage() {
       toast.error("Nama tidak boleh kosong.");
       return;
     }
+    if (isAnak) {
+      const problem = semakPenempah(penempah, phone);
+      if (problem) {
+        toast.error(problem);
+        return;
+      }
+    }
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ name: name.trim(), phone: phone.trim() || null })
+      .update({
+        name: name.trim(),
+        phone: phone.trim() || null,
+        ...(isAnak ? penempahKeRow(penempah) : {}),
+      })
       .eq("id", user.id);
     setSaving(false);
     if (error) return toast.error(error.message);
     await refreshCurrentUser();
+    if (isAnak) invalidate(qk.users);
     setDirty(false);
     toast.success("Profil dikemas kini");
   };
+
+  const penempahLoading = isAnak && penempahQ.isPending;
+  const profilBelumLengkap =
+    isAnak && !!penempahQ.data && !penempahLengkap(penempahQ.data, user.phone);
 
   const changePassword = async () => {
     if (!pw.current) {
@@ -261,6 +303,18 @@ export function ProfilePage() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Maklumat Akaun
         </h2>
+        {profilBelumLengkap && (
+          <p className="mb-4 flex items-start gap-2 rounded-lg bg-peach/20 p-3 text-xs text-peach-foreground">
+            <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+            Profil anda belum lengkap. Sila isi semua ruangan bertanda * dan simpan.
+          </p>
+        )}
+        {isAnak && penempahQ.isError && (
+          <p className="mb-4 flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+            Maklumat penempah gagal dimuatkan: {(penempahQ.error as Error).message}
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label className="text-xs" htmlFor="profil-nama">
@@ -275,9 +329,17 @@ export function ProfilePage() {
               }}
             />
           </div>
+          {isAnak && (
+            <PenempahIcField
+              value={penempah}
+              onChange={editPenempah}
+              disabled={penempahLoading}
+              labelClassName="text-xs"
+            />
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs" htmlFor="profil-telefon">
-              No. Telefon
+              No. Telefon{isAnak && " *"}
             </Label>
             <Input
               id="profil-telefon"
@@ -309,9 +371,25 @@ export function ProfilePage() {
               Peranan hanya boleh ditukar oleh admin melalui Pengurusan Temanion.
             </p>
           </div>
+          {isAnak && (
+            <>
+              <PenempahMajikanFields
+                value={penempah}
+                onChange={editPenempah}
+                disabled={penempahLoading}
+                labelClassName="text-xs"
+              />
+              <PenempahKecemasanFields
+                value={penempah}
+                onChange={editPenempah}
+                disabled={penempahLoading}
+                labelClassName="text-xs"
+              />
+            </>
+          )}
         </div>
         <div className="mt-5 flex justify-end">
-          <Button onClick={() => void saveProfile()} disabled={saving || !dirty}>
+          <Button onClick={() => void saveProfile()} disabled={saving || !dirty || penempahLoading}>
             {saving ? "Menyimpan..." : "Simpan Perubahan"}
           </Button>
         </div>

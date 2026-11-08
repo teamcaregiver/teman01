@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Role, User } from "./mock-data";
 import { supabase } from "./supabase/client";
 import type { ProfileRow } from "./supabase/types";
+import { penempahKeRow, type MaklumatPenempah } from "./penempah";
 
 const KEY = "ecare.auth";
 
@@ -57,7 +58,8 @@ export async function refreshCurrentUser(): Promise<User | null> {
 async function fetchProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,name,email,role,status,phone,created_at")
+    // avatar_url is needed by rowToUser; without it every refresh dropped the photo.
+    .select("id,name,email,role,status,phone,avatar_url,created_at")
     .eq("id", userId)
     .maybeSingle();
   if (error || !data) return null;
@@ -76,7 +78,8 @@ export type SignInResult =
   | { ok: false; reason: "invalid" | "pending" | "blocked"; message?: string };
 
 export type SignUpResult =
-  | { ok: true; user: User }
+  /** `detailsSaved` false: the account exists but the booker details did not save. */
+  | { ok: true; user: User; detailsSaved: boolean }
   | { ok: false; reason: "exists" | "error"; message?: string };
 
 export const DEMO_CREDENTIALS: {
@@ -117,12 +120,18 @@ export async function signInWithEmail(
   return { ok: true, user: profile };
 }
 
-/** Public anak self-registration. Role is forced to 'anak' by the DB trigger. */
+/**
+ * Public anak self-registration. Role is forced to 'anak' by the DB trigger.
+ * Only name/phone go in the sign-up metadata; the booker details (IC etc.) are
+ * written to the profile afterwards, because Supabase copies user metadata
+ * into every access token.
+ */
 export async function signUpAnak(input: {
   name: string;
   email: string;
   phone: string;
   password: string;
+  penempah: MaklumatPenempah;
 }): Promise<SignUpResult> {
   const { data, error } = await supabase.auth.signUp({
     email: input.email.trim(),
@@ -150,7 +159,14 @@ export async function signUpAnak(input: {
   }
   if (!profile) return { ok: false, reason: "error", message: "Profil tidak dijumpai." };
   cacheUser(profile);
-  return { ok: true, user: profile };
+
+  // The account exists from here on, so a failure is reported, not fatal:
+  // the family can finish the details on Profil Saya.
+  const { error: detailsErr } = await supabase
+    .from("profiles")
+    .update(penempahKeRow(input.penempah))
+    .eq("id", data.user.id);
+  return { ok: true, user: profile, detailsSaved: !detailsErr };
 }
 
 export async function signOut() {

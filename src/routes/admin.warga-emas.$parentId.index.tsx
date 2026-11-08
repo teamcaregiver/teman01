@@ -19,6 +19,8 @@ import { supabase } from "@/lib/supabase/client";
 import { VitalCharts } from "@/components/vital-charts";
 import { StatusBadge } from "@/components/status-badge";
 import { ParentChecklistCard } from "@/components/checklist-editor";
+import { PENEMPAH_KOSONG, penempahLengkap } from "@/lib/penempah";
+import { formatBerat, formatTinggi, formatUmur } from "@/lib/profil-penerima";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Archive, ArchiveRestore, ChevronLeft, Pencil } from "lucide-react";
@@ -153,7 +155,11 @@ function WargaDetail() {
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Maklumat Peribadi</h2>
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <Item label="Tarikh Lahir" value={parent.birthDate ? format(new Date(parent.birthDate), "dd MMM yyyy") : "—"} />
+            <Item label="Umur" value={formatUmur(parent.birthDate)} />
+            <Item label="Bahasa Pilihan" value={parent.bahasaPilihan} />
             <Item label="No. Telefon" value={parent.phone} />
+            <Item label="Berat" value={formatBerat(parent.beratKg)} />
+            <Item label="Tinggi" value={formatTinggi(parent.tinggiCm)} />
             <Item label="Hubungan dengan Anak" value={parent.relationship} />
             <Item label="Jenis Darah" value={parent.jenisDarah} />
             <Item label="Status Mobiliti" value={parent.statusMobiliti} />
@@ -187,16 +193,49 @@ function WargaDetail() {
             <p className="mt-0.5 font-medium">{staff?.name ?? "Belum ditetapkan"}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Anak Terpaut</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {anak.length > 0 ? anak.map(a => <Badge key={a.id} variant="secondary" className="bg-sage/20 text-sage-foreground">{a.name}</Badge>) : <span className="text-muted-foreground">—</span>}
-            </div>
-          </div>
-          <div>
             <p className="text-xs text-muted-foreground">Jumlah Rekod</p>
             <p className="mt-0.5 font-medium">{rows.length}</p>
           </div>
         </div>
+      </Card>
+
+      {/* Linked family accounts with their booker details (issue #12) */}
+      <Card className="border-border/60 p-5">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Penempah Servis
+        </h2>
+        {anak.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Tiada akaun anak dipautkan. Pautkan melalui butang Edit.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {anak.map((a) => {
+              const p = a.penempah ?? PENEMPAH_KOSONG;
+              const kecemasan = [p.kecemasanNama, p.kecemasanTelefon].filter(Boolean).join(" — ");
+              return (
+                <div key={a.id} className="rounded-xl bg-muted/40 p-4">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{a.name}</p>
+                    {!penempahLengkap(p, a.phone) && (
+                      <Badge variant="outline" className="bg-peach/20 text-peach-foreground">
+                        Profil belum lengkap
+                      </Badge>
+                    )}
+                  </div>
+                  <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
+                    <Item label="No. Kad Pengenalan" value={p.ic} />
+                    <Item label="No. Telefon" value={a.phone} />
+                    <Item label="Emel" value={a.email} />
+                    <Item label="Majikan" value={p.namaMajikan} />
+                    <Item label="No. Pekerja" value={p.noPekerja} />
+                    <Item label="Kontak Kecemasan" value={kecemasan} />
+                  </dl>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       {/* This resident's own daily checklist (default until edited) */}

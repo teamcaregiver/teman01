@@ -52,6 +52,12 @@ export type ProfileRow = {
   lokasi: string | null;
   alamat: string | null;
   kemahiran: string[] | null;
+  // Booker (anak) details (migration 0017) — the user's own, admin can read.
+  ic: string | null;
+  nama_majikan: string | null;
+  no_pekerja: string | null;
+  kecemasan_nama: string | null;
+  kecemasan_telefon: string | null;
   created_at: string;
 };
 
@@ -79,6 +85,10 @@ export type ParentRow = {
   sekatan_pemakanan: string | null;
   archived_at: string | null;
   lokasi: string | null;
+  // Issue #12 (migration 0017).
+  bahasa_pilihan: string | null;
+  berat_kg: number | null;
+  tinggi_cm: number | null;
   created_at: string;
 };
 

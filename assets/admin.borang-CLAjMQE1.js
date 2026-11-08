@@ -1,0 +1,1 @@
+import{h as e}from"./createLucideIcon-vdvGAqQn.js";import{t}from"./borang-page-DBX8sSNE.js";var n=e();function r(){return(0,n.jsx)(t,{})}export{r as component};

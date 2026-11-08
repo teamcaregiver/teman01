@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./normalizeDates-CHblaUHS.js";function n(n,r,i){let a=e(n,i?.in);return isNaN(r)?t(i?.in||n,NaN):(r&&a.setDate(a.getDate()+r),a)}function r(t,n){let r=e(t,n?.in),i=r.getMonth();return r.setFullYear(r.getFullYear(),i+1,0),r.setHours(23,59,59,999),r}function i(t,n){let r=e(t,n?.in);return r.setDate(1),r.setHours(0,0,0,0),r}export{r as n,n as r,i as t};

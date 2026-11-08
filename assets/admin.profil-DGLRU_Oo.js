@@ -1,0 +1,1 @@
+import{h as e}from"./createLucideIcon-vdvGAqQn.js";import{t}from"./profile-page-CIrn5SqE.js";var n=e();function r(){return(0,n.jsx)(t,{})}export{r as component};

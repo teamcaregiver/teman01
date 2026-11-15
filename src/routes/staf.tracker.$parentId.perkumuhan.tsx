@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PilihanSkala } from "@/components/pilihan-skala";
 import { TahapPill } from "@/components/pemantauan-rujukan";
+import { GambarRujukan } from "@/components/gambar-rujukan";
 import { FieldLabel, TrackerFormShell } from "@/components/tracker-form-shell";
 import { useParents } from "@/lib/data";
 import { useAuth } from "@/lib/auth-store";
@@ -17,8 +18,8 @@ import {
   tafsiranUrin,
 } from "@/lib/pemantauan";
 import type { JenisPerkumuhan, PerkumuhanEntry } from "@/lib/pemantauan";
-// Bristol Stool Chart poster (Public Health Malaysia), shown as a reference
-// while the staff picks a jenis najis.
+// Bristol Stool Chart poster (Public Health Malaysia), shown in the Buku 3
+// guide ("Lihat") as a reference for picking a jenis najis.
 import cartaBristol from "@/assets/bristol-stool-chart.jpg";
 
 export const Route = createFileRoute("/staf/tracker/$parentId/perkumuhan")({
@@ -94,6 +95,15 @@ function PerkumuhanForm() {
       unit="perkumuhan"
       saving={saving}
       onSubmit={submit}
+      rujukan={
+        <GambarRujukan
+          src={cartaBristol}
+          tajuk="Carta Najis Bristol (Bristol Stool Chart)"
+          alt="Carta Najis Bristol: Jenis 1 dan 2 sembelit, Jenis 3 dan 4 normal, Jenis 5, 6 dan 7 cirit-birit"
+          width={528}
+          height={767}
+        />
+      }
     >
       <Card className="space-y-5 border-border/60 p-5">
         <PilihanSkala
@@ -123,39 +133,18 @@ function PerkumuhanForm() {
         )}
 
         {jenis === "najis" && (
-          <>
-            <figure className="space-y-1.5">
-              <a
-                href={cartaBristol}
-                target="_blank"
-                rel="noreferrer"
-                className="mx-auto block w-full max-w-md overflow-hidden rounded-xl border border-border/60"
-              >
-                <img
-                  src={cartaBristol}
-                  alt="Carta Najis Bristol: Jenis 1 dan 2 sembelit, Jenis 3 dan 4 normal, Jenis 5, 6 dan 7 cirit-birit"
-                  width={528}
-                  height={767}
-                  className="h-auto w-full"
-                />
-              </a>
-              <figcaption className="text-center text-[11px] text-muted-foreground">
-                Ketik carta untuk paparan penuh
-              </figcaption>
-            </figure>
-            <PilihanSkala
-              label="Jenis najis (Bristol Stool Chart)"
-              value={bristol}
-              onChange={setBristol}
-              onClear={() => setBristol(undefined)}
-              className="sm:grid-cols-2"
-              options={BRISTOL.map((b) => ({
-                value: b.jenis,
-                label: `Jenis ${b.jenis}`,
-                hint: b.label,
-              }))}
-            />
-          </>
+          <PilihanSkala
+            label="Jenis najis (Bristol Stool Chart)"
+            value={bristol}
+            onChange={setBristol}
+            onClear={() => setBristol(undefined)}
+            className="sm:grid-cols-2"
+            options={BRISTOL.map((b) => ({
+              value: b.jenis,
+              label: `Jenis ${b.jenis}`,
+              hint: b.label,
+            }))}
+          />
         )}
 
         {tafsiran && (

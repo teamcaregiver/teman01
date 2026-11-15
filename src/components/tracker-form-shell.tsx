@@ -19,6 +19,7 @@ export function TrackerFormShell({
   unit,
   saving,
   onSubmit,
+  rujukan,
   children,
 }: {
   parentId: string;
@@ -27,11 +28,14 @@ export function TrackerFormShell({
   unit: Buku3UnitId;
   saving: boolean;
   onSubmit: () => void;
+  /** Extra reference material shown under the Buku 3 text, e.g. a chart. */
+  rujukan?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
   // The unit's section as admin last saved it (Jadual Pemantauan page).
-  const panduan = useBuku3().find((b) => b.kunci === unit) ?? bahagianAsal(unit)!;
+  const panduan =
+    useBuku3().find((b) => b.kunci === unit) ?? bahagianAsal(unit)!;
   const back = () =>
     navigate({ to: "/staf/tracker/$parentId", params: { parentId } });
 
@@ -70,6 +74,7 @@ export function TrackerFormShell({
           content={panduan.kandungan}
           className="mt-3 text-muted-foreground"
         />
+        {rujukan && <div className="mt-4">{rujukan}</div>}
       </details>
 
       {children}

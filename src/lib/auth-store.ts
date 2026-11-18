@@ -80,7 +80,45 @@ export type SignInResult =
 export type SignUpResult =
   /** `detailsSaved` false: the account exists but the booker details did not save. */
   | { ok: true; user: User; detailsSaved: boolean }
+  /** "Confirm email" is on: the account exists but has no session until the emailed link is opened. */
+  | { ok: true; needsConfirmation: true; email: string }
   | { ok: false; reason: "exists" | "error"; message?: string };
+
+// ---- booker details waiting for email confirmation ----
+// With "Confirm email" on, signUp returns no session, so RLS blocks writing the
+// booker details yet. They wait on this device until the account first signs
+// in. Not in sign-up metadata: Supabase copies that into every access token.
+const PENDING_PENEMPAH_KEY = "ecare.penempah-tertangguh";
+
+type PendingPenempah = { email: string; penempah: MaklumatPenempah };
+
+function keepPendingPenempah(email: string, penempah: MaklumatPenempah) {
+  try {
+    const pending: PendingPenempah = { email: email.trim().toLowerCase(), penempah };
+    localStorage.setItem(PENDING_PENEMPAH_KEY, JSON.stringify(pending));
+  } catch {
+    // Storage blocked: the anak dashboard asks for the details instead.
+  }
+}
+
+/** Save booker details left by signUpAnak, once that same account is signed in. */
+export async function savePendingPenempah(user: Pick<User, "id" | "email">): Promise<void> {
+  if (typeof window === "undefined") return;
+  let pending: PendingPenempah | null = null;
+  try {
+    pending = JSON.parse(localStorage.getItem(PENDING_PENEMPAH_KEY) ?? "null");
+  } catch {
+    return;
+  }
+  if (!pending || pending.email !== user.email.trim().toLowerCase()) return;
+  const { error } = await supabase
+    .from("profiles")
+    .update(penempahKeRow(pending.penempah))
+    .eq("id", user.id)
+    // Never overwrite details the user has already filled in on another device.
+    .is("ic", null);
+  if (!error) localStorage.removeItem(PENDING_PENEMPAH_KEY);
+}
 
 export const DEMO_CREDENTIALS: {
   role: Role;
@@ -117,6 +155,7 @@ export async function signInWithEmail(
     };
   }
   cacheUser(profile);
+  await savePendingPenempah(profile);
   return { ok: true, user: profile };
 }
 
@@ -133,23 +172,29 @@ export async function signUpAnak(input: {
   password: string;
   penempah: MaklumatPenempah;
 }): Promise<SignUpResult> {
+  const email = input.email.trim();
   const { data, error } = await supabase.auth.signUp({
-    email: input.email.trim(),
+    email,
     password: input.password,
-    options: { data: { name: input.name, phone: input.phone } },
+    options: {
+      data: { name: input.name, phone: input.phone },
+      // Without this the confirmation link goes to the project's Site URL
+      // (localhost by default). Must be listed under Auth > URL Configuration
+      // > Redirect URLs, or Supabase falls back to the Site URL anyway.
+      emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
+    },
   });
   if (error) {
     const exists = /already|registered|exists/i.test(error.message);
     return { ok: false, reason: exists ? "exists" : "error", message: error.message };
   }
-  if (!data.session || !data.user) {
-    // No session => email confirmation is still ON in the project settings.
-    return {
-      ok: false,
-      reason: "error",
-      message:
-        "Sahkan emel anda dahulu, atau matikan 'Confirm email' dalam tetapan Supabase Auth.",
-    };
+  if (!data.user) return { ok: false, reason: "error", message: "Pendaftaran gagal." };
+  if (!data.session) {
+    // With "Confirm email" on, an already-confirmed email comes back as a
+    // user with no identities instead of an error.
+    if (data.user.identities?.length === 0) return { ok: false, reason: "exists" };
+    keepPendingPenempah(email, input.penempah);
+    return { ok: true, needsConfirmation: true, email };
   }
   // Trigger creates the profile in the same transaction; retry once for safety.
   let profile = await fetchProfile(data.user.id);

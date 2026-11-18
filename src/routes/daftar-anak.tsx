@@ -49,6 +49,14 @@ export function RegisterForm({ role }: { role: "anak" | "staff" }) {
           );
           return;
         }
+        if ("needsConfirmation" in res) {
+          toast.success(
+            `Akaun didaftarkan. Sila buka pautan pengesahan yang dihantar ke ${res.email}, kemudian log masuk.`,
+            { duration: 10000 },
+          );
+          navigate({ to: "/login" });
+          return;
+        }
         if (res.detailsSaved) {
           toast.success("Akaun anak berjaya didaftarkan");
         } else {

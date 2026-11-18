@@ -1,14 +1,19 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Heart, Copy, LogIn } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { DEMO_CREDENTIALS, signInWithEmail } from "@/lib/auth-store";
+import {
+  DEMO_CREDENTIALS,
+  savePendingPenempah,
+  signInWithEmail,
+  useAuth,
+} from "@/lib/auth-store";
 import type { Role } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/login")({
@@ -25,6 +30,26 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const { user, ready } = useAuth();
+
+  // The email confirmation link lands here with the session in the URL hash;
+  // supabase-js signs the user in from it, so move them on to their dashboard.
+  useEffect(() => {
+    if (!ready || !user || user.status !== "active") return;
+    void savePendingPenempah(user).finally(() => navigate({ to: routeFor(user.role) }));
+  }, [ready, user, navigate]);
+
+  // A used or expired confirmation link comes back with the error in the hash.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    if (params.get("error_code") === "otp_expired") {
+      toast.error(
+        "Pautan pengesahan tidak sah atau telah tamat tempoh. Daftar semula dengan emel yang sama untuk menerima pautan baharu.",
+      );
+    } else if (params.get("error_description")) {
+      toast.error(params.get("error_description"));
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
